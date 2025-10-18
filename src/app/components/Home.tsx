@@ -1,60 +1,45 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { getCarteras } from "@/services/carterasService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
-import { TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
+import { Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
 
-export function Home() {
+interface HomeProps {
+  onSelectPortfolio: (portfolioId: number) => void;
+  userId: number
+}
+
+export function Home({ onSelectPortfolio }: HomeProps) {
+
+  const [wallets, setWallets] = useState<{ nombre: string; saldo: number; id_usuario: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(1)
+
+    useEffect(() => {
+    async function fetchWallets() {
+      try {
+        const data = await getCarteras(userId);
+        setWallets(data);
+      } catch (error) {
+        console.error("Error al obtener carteras:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchWallets();
+  }, [userId]);
+
+  const totalBalanceValue = wallets.reduce((acc, w) => acc + Number(w.saldo), 0);
+
   const totalBalance = {
-    title: "Balance Total",
-    value: "124,850.50€",
-    change: "+12.5%",
-    trend: "up" as const,
-    icon: DollarSign,
+  title: "Balance Total",
+  value: `${totalBalanceValue.toLocaleString("es-ES", { minimumFractionDigits: 2 })}€`,
+  change: "+0.0%",
+  trend: "up" as const,
   };
-
-  const wallets = [
-    {
-      id: 1,
-      name: "Cartera Personal",
-      balance: "45,200.00€",
-      change: "+5.3%",
-      trend: "up" as const,
-    },
-    {
-      id: 2,
-      name: "Cartera Ahorros",
-      balance: "28,500.00€",
-      change: "+3.2%",
-      trend: "up" as const,
-    },
-    {
-      id: 3,
-      name: "Cartera Gastos",
-      balance: "12,300.00€",
-      change: "-2.1%",
-      trend: "down" as const,
-    },
-    {
-      id: 4,
-      name: "Cartera Emergencias",
-      balance: "19,800.00€",
-      change: "+1.5%",
-      trend: "up" as const,
-    },
-    {
-      id: 5,
-      name: "Cartera Vacaciones",
-      balance: "8,650.50€",
-      change: "+4.2%",
-      trend: "up" as const,
-    },
-    {
-      id: 6,
-      name: "Cartera Inversiones",
-      balance: "10,400.00€",
-      change: "+6.8%",
-      trend: "up" as const,
-    },
-  ];
 
   const recentActivity = [
     { id: 1, name: "Cartera Personal", amount: "+2,450€", date: "Hoy", type: "gain", description: "Ingreso - Salario" },
@@ -93,42 +78,47 @@ export function Home() {
       </Card>
 
       {/* Scroll horizontal nativo, sin carousel */}
-      <div className="overflow-x-auto no-scrollbar scroll-smooth pb-2">
-        <div className="carousel-scroll flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth p-1">
-          {wallets.map((wallet) => (
-            <div
-              key={wallet.id}
-              className="flex-none w-[min(280px,80%)] md:w-1/2 lg:w-1/3"
-            >
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">{wallet.name}</CardTitle>
-                  <Wallet className="h-4 w-4 text-gray-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{wallet.balance}</div>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                    {wallet.trend === "up" ? (
-                      <TrendingUp className="h-3 w-3 text-green-600" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 text-red-600" />
-                    )}
-                    <span
-                      className={
-                        wallet.trend === "up" ? "text-green-600" : "text-red-600"
-                      }
-                    >
-                      {wallet.change}
-                    </span>
-                    <span>vs mes anterior</span>
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
-        </div>
-      </div>
+<div className="overflow-x-auto no-scrollbar scroll-smooth pb-2">
+  <div className="carousel-scroll flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth p-1">
+    {wallets.length === 0 ? (
+      <p className="text-gray-500 px-4">No hay carteras registradas aún.</p>
+    ) : (
+      wallets.map((wallet, index) => (
+        <div key={`${wallet.nombre}-${wallet.id_usuario}`} className="flex-none w-[min(280px,80%)] md:w-1/2 lg:w-1/3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm">{wallet.nombre}</CardTitle>
+              <Wallet className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-500">Balance</p>
+                <p className="text-2xl font-bold">
+                  {Number(wallet.saldo).toLocaleString("es-ES", { minimumFractionDigits: 2 })}€
+                </p>
+              </div>
 
+              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                <TrendingUp className="h-3 w-3 text-green-600" />
+                <span className="text-green-600">+0.0%</span>
+                <span>vs mes anterior</span>
+              </p>
+
+              <Button
+                variant="outline"
+                className="w-full gap-2 mt-2"
+                onClick={() => onSelectPortfolio(index + 1)}
+              >
+                <Eye className="h-4 w-4" />
+                Ver Cartera
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ))
+    )}
+  </div>
+</div>
 
       {/* Recent Activity - Last 10 Movements */}
       <Card>

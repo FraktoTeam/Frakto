@@ -1,12 +1,28 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Home } from "./components/Home";
 import { Portfolio } from "./components/Portfolio";
 import { Home as HomeIcon, Briefcase, BarChart3, Settings } from "lucide-react";
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
+
+  const [previousView, setPreviousView] = useState<string>("home");
+
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (activeView === "portfolio" && previousView !== "portfolio") {
+      setSelectedPortfolioId(null);
+    }
+  }, [activeView, previousView]);
+
+  const handleSelectPortfolio = (portfolioId: number): void => {
+    setSelectedPortfolioId(portfolioId);
+    setPreviousView(activeView);
+    setActiveView("portfolio");
+  };
 
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
@@ -18,9 +34,17 @@ export default function App() {
   const renderView = () => {
     switch (activeView) {
       case "home":
-        return <Home />;
+        return <Home onSelectPortfolio={handleSelectPortfolio}
+        userId={1} />;
       case "portfolio":
-        return <Portfolio />;
+        return (
+          <Portfolio
+            userId={1}
+            selectedId={selectedPortfolioId}
+            previousView={previousView}       
+            onNavigateBack={setActiveView}    
+          />
+        );
       case "analytics":
         return (
           <div className="space-y-6">
@@ -48,7 +72,8 @@ export default function App() {
           </div>
         );
       default:
-        return <Home />;
+        return <Home onSelectPortfolio={handleSelectPortfolio} 
+        userId={1}/>;
           }
         };
 
@@ -63,7 +88,7 @@ export default function App() {
 
             {/* Logo pequeño / recortado */}
             <img
-              src="/favicon.png"
+              src="/logoPequeno.png"
               alt="Logo pequeño"
               className="block group-hover:hidden h-full w-full object-contain"
             />

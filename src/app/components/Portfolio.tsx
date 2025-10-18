@@ -1,4 +1,7 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { getCarteras, createCartera, editCartera } from "@/services/carterasService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
@@ -16,66 +19,158 @@ interface PortfolioItem {
   lastUpdate: string;
 }
 
-export function Portfolio() {
-  const [portfolios, setPortfolios] = useState<PortfolioItem[]>([
-    {
-      id: 1,
-      name: "Cartera Personal",
-      balance: "45,200.00€",
-      monthlyChange: "+2,450.00€",
-      trend: "up",
-      transactions: 24,
-      lastUpdate: "Hace 2 horas",
-    },
-    {
-      id: 2,
-      name: "Cartera Ahorros",
-      balance: "28,500.00€",
-      monthlyChange: "+1,200.00€",
-      trend: "up",
-      transactions: 8,
-      lastUpdate: "Hace 5 horas",
-    },
-    {
-      id: 3,
-      name: "Cartera Gastos",
-      balance: "12,300.00€",
-      monthlyChange: "-890.00€",
-      trend: "down",
-      transactions: 35,
-      lastUpdate: "Hace 1 hora",
-    },
-    {
-      id: 4,
-      name: "Cartera Emergencias",
-      balance: "19,800.00€",
-      monthlyChange: "+500.00€",
-      trend: "up",
-      transactions: 3,
-      lastUpdate: "Hace 3 horas",
-    },
-  ]);
+interface PortfolioProps {
+  userId: number;   
+  selectedId?: number | null;
+  previousView?: string;
+  onNavigateBack?: (view: string) => void;
+}
 
-  const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioItem | null>(null);
+export function Portfolio({ selectedId, previousView = "home", onNavigateBack }: PortfolioProps) {
+  const [portfolios, setPortfolios] = useState<PortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(1)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingPortfolio, setEditingPortfolio] = useState<PortfolioItem | null>(null);
+  const [newName, setNewName] = useState("");
+  const [editError, setEditError] = useState("");
+  
+  useEffect(() => {
+    async function fetchWallets() {
+      try {
+        const data = await getCarteras(userId);
+        const formatted: PortfolioItem[] = data.map((c) => ({
+          id: c.id_usuario,
+          name: c.nombre,
+          balance: `${c.saldo.toFixed(2)}€`,
+          monthlyChange: "0.00€",
+          trend: "up", 
+          transactions: 0,
+          lastUpdate: "Ahora",
+        }));
+        setPortfolios(formatted);
+      } catch (err) {
+        console.error("Error al obtener carteras:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchWallets();
+  }, [userId]);
+
+
+  const [selectedPortfolio, setSelectedPortfolio] = useState<PortfolioItem | null>(
+  selectedId ? portfolios.find((p) => p.id === selectedId) || null : null
+  );
+
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedPortfolio(null);
+    }
+  }, [selectedId]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState("");
   const [newPortfolioBalance, setNewPortfolioBalance] = useState("");
+  const [errors, setErrors] = useState({ name: "", balance: "" });
 
-  const handleAddPortfolio = () => {
-    if (newPortfolioName && newPortfolioBalance) {
+  const handleEditPortfolio = async () => {
+    const nameRegex = /^[A-Za-z0-9_-]+$/;
+    setEditError("");
+
+    if (!editingPortfolio) return;
+
+    if (!nameRegex.test(newName)) {
+      setEditError("El nombre solo puede contener letras y números (sin espacios).");
+      return;
+    }
+
+    try {
+      const { data, error } = await editCartera(userId, editingPortfolio.name, newName);
+
+      if (error) {
+        setEditError(error);
+        return;
+      }
+
+      setPortfolios((prev) =>
+        prev.map((p) =>
+          p.name === editingPortfolio.name ? { ...p, name: data!.nombre } : p
+        )
+      );
+
+      setIsEditDialogOpen(false);
+      setEditingPortfolio(null);
+      setNewName("");
+    } catch (err) {
+      console.error("Error actualizando cartera:", err);
+      setEditError("Error inesperado al actualizar la cartera.");
+    }
+  };
+
+  const handleAddPortfolio = async () => {
+    const nameRegex = /^[A-Za-z0-9_-]+$/; 
+    const balanceRegex = /^\d+(\.\d{1,2})?$/; 
+
+    let valid = true;
+    const newErrors = { name: "", balance: "" };
+
+    // Validación del nombre
+    if (!nameRegex.test(newPortfolioName)) {
+      newErrors.name = "El nombre solo puede contener letras y números (sin espacios).";
+      valid = false;
+    }
+
+    // Validación del balance
+    const balanceValue = parseFloat(parseFloat(newPortfolioBalance).toFixed(2));
+    if (!balanceRegex.test(newPortfolioBalance) || balanceValue < 0) {
+      newErrors.balance = "Debe ser un número mayor o igual que 0 con hasta 2 decimales.";
+      valid = false;
+    }
+
+    setErrors(newErrors);
+    if (!valid) return;
+
+    try {
+      const { data: nueva, error } = await createCartera(newPortfolioName, balanceValue, userId);
+
+      if (error) {
+        setErrors({ name: error, balance: "" });
+        return;
+      }
+
+      if (!nueva) return
+
       const newPortfolio: PortfolioItem = {
         id: portfolios.length + 1,
-        name: newPortfolioName,
-        balance: `${parseFloat(newPortfolioBalance).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        name: nueva.nombre,
+        balance: `${nueva.saldo.toFixed(2)}€`,
         monthlyChange: "0.00€",
         trend: "up",
         transactions: 0,
         lastUpdate: "Ahora",
       };
-      setPortfolios([...portfolios, newPortfolio]);
+
+      setPortfolios((prev) => [...prev, newPortfolio]);
       setNewPortfolioName("");
       setNewPortfolioBalance("");
+      setErrors({ name: "", balance: "" });
       setIsDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error creando cartera:", error);
+
+      if (error.message.includes("duplicate key")) {
+        setErrors({
+          name: "Ya existe una cartera con ese nombre para este usuario.",
+          balance: "",
+        });
+      } else if (error.message.includes("Ya existe")) {
+        setErrors({
+          name: "Ya existe una cartera con ese nombre.",
+          balance: "",
+        });
+      } else {
+        alert("Ocurrió un error inesperado al crear la cartera.");
+      }
     }
   };
 
@@ -86,7 +181,17 @@ export function Portfolio() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setSelectedPortfolio(null)}
+            onClick={() => {
+              if (selectedId) {
+                if (onNavigateBack) {
+                  onNavigateBack(previousView);
+                } else {
+                  setSelectedPortfolio(null); 
+                }
+              } else {
+                setSelectedPortfolio(null);
+              }
+            }}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -188,6 +293,7 @@ export function Portfolio() {
               <DialogTitle>Nueva Cartera</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
+              {/* Nombre */}
               <div className="space-y-2">
                 <Label htmlFor="name">Nombre de la Cartera</Label>
                 <Input
@@ -196,7 +302,10 @@ export function Portfolio() {
                   value={newPortfolioName}
                   onChange={(e) => setNewPortfolioName(e.target.value)}
                 />
+                {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
               </div>
+
+              {/* Balance */}
               <div className="space-y-2">
                 <Label htmlFor="balance">Balance Inicial</Label>
                 <Input
@@ -206,9 +315,34 @@ export function Portfolio() {
                   value={newPortfolioBalance}
                   onChange={(e) => setNewPortfolioBalance(e.target.value)}
                 />
+                {errors.balance && <p className="text-red-500 text-sm">{errors.balance}</p>}
               </div>
+
               <Button onClick={handleAddPortfolio} className="w-full">
                 Crear Cartera
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Cartera</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="editName">Nuevo nombre</Label>
+                <Input
+                  id="editName"
+                  placeholder="Nuevo nombre de la cartera"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+                {editError && <p className="text-red-500 text-sm">{editError}</p>}
+              </div>
+
+              <Button onClick={handleEditPortfolio} className="w-full">
+                Guardar Cambios
               </Button>
             </div>
           </DialogContent>
@@ -217,7 +351,7 @@ export function Portfolio() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {portfolios.map((portfolio) => (
-          <Card key={portfolio.id} className="hover:shadow-lg transition-shadow">
+          <Card key={`${portfolio.name}-${userId}`} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{portfolio.name}</span>
@@ -254,6 +388,17 @@ export function Portfolio() {
                 >
                   <Eye className="h-4 w-4" />
                   Ver Cartera
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2 mt-2"
+                  onClick={() => {
+                    setEditingPortfolio(portfolio);
+                    setNewName(portfolio.name);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  Editar
                 </Button>
               </div>
             </CardContent>
