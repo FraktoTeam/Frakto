@@ -89,19 +89,6 @@ export async function updateCartera(nombre: string, id_usuario: number, nuevoSal
 }
 
 /**
- * Eliminar una cartera
- */
-export async function deleteCartera(nombre: string, id_usuario: number): Promise<void> {
-  const { error } = await createClient
-    .from("cartera")
-    .delete()
-    .eq("nombre", nombre)
-    .eq("id_usuario", id_usuario);
-
-  if (error) throw new Error(error.message);
-}
-
-/**
  * Actualiza el nombre de una cartera
  */
 export async function editCartera(
@@ -130,4 +117,18 @@ export async function editCartera(
   if (error) return { data: null, error: error.message };
 
   return { data, error: null };
+}
+
+/** 
+ *  Elimina una cartera por nombre e id_usuario
+ */
+export async function deleteCartera(id_usuario: number, nombre: string): Promise<{ success: boolean; error: string | null }> {
+  const { error } = await createClient
+    .from("cartera")
+    .delete()
+    .eq("id_usuario", id_usuario)
+    .eq("nombre", nombre);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, error: null };
 }

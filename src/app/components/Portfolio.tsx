@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCarteras, createCartera, editCartera } from "@/services/carterasService";
+import { getCarteras, createCartera, editCartera, deleteCartera } from "@/services/carterasService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft } from "lucide-react";
+import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
 
 interface PortfolioItem {
   id: number;
@@ -34,6 +34,9 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
   const [editingPortfolio, setEditingPortfolio] = useState<PortfolioItem | null>(null);
   const [newName, setNewName] = useState("");
   const [editError, setEditError] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingPortfolio, setDeletingPortfolio] = useState<PortfolioItem | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   
   useEffect(() => {
     async function fetchWallets() {
@@ -104,6 +107,32 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     } catch (err) {
       console.error("Error actualizando cartera:", err);
       setEditError("Error inesperado al actualizar la cartera.");
+    }
+  };
+
+  const handleDeletePortfolio = async () => {
+    if (!deletingPortfolio) return;
+
+    try {
+      const { success, error } = await deleteCartera(userId, deletingPortfolio.name);
+
+      if (error) {
+        setDeleteError("Error al eliminar la cartera. Intenta nuevamente.");
+        console.error("Error eliminando cartera:", error);
+        return;
+      }
+
+      if (success) {
+        setPortfolios((prev) =>
+          prev.filter((p) => p.name !== deletingPortfolio.name)
+        );
+        setIsDeleteDialogOpen(false);
+        setDeletingPortfolio(null);
+        setDeleteError("");
+      }
+    } catch (err) {
+      console.error("Error inesperado al eliminar:", err);
+      setDeleteError("Error inesperado al eliminar la cartera.");
     }
   };
 
@@ -347,6 +376,43 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
             </div>
           </DialogContent>
         </Dialog>
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar eliminación</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <p className="text-sm text-gray-600">
+                ¿Estás seguro de que deseas eliminar la cartera{" "}
+                <span className="font-semibold">{deletingPortfolio?.name}</span>? <br />
+                Esta acción no se puede deshacer.
+              </p>
+
+              {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
+
+              <div className="flex gap-3">
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleDeletePortfolio}
+                >
+                  Sí, eliminar
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setIsDeleteDialogOpen(false);
+                    setDeletingPortfolio(null);
+                    setDeleteError("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -390,7 +456,7 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
                   Ver Cartera
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   className="w-full gap-2 mt-2"
                   onClick={() => {
                     setEditingPortfolio(portfolio);
@@ -398,7 +464,19 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
                     setIsEditDialogOpen(true);
                   }}
                 >
+                  <Pencil className="h-4 w-4" />
                   Editar
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="w-full gap-2 mt-2"
+                  onClick={() => {
+                    setDeletingPortfolio(portfolio);
+                    setIsDeleteDialogOpen(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar
                 </Button>
               </div>
             </CardContent>
