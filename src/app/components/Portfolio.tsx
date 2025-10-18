@@ -8,6 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
+import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCartera } from "@/services/transaccionService";
+import { Textarea } from "./ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { DollarSign, ShoppingCart } from "lucide-react";
+
 
 interface PortfolioItem {
   id: number;
@@ -37,6 +42,19 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingPortfolio, setDeletingPortfolio] = useState<PortfolioItem | null>(null);
   const [deleteError, setDeleteError] = useState("");
+
+  const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+
+  const [incomeAmount, setIncomeAmount] = useState("");
+  const [incomeDate, setIncomeDate] = useState("");
+  const [incomeDescription, setIncomeDescription] = useState("");
+
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseCategory, setExpenseCategory] = useState("");
+  const [expenseDate, setExpenseDate] = useState("");
+  const [expenseDescription, setExpenseDescription] = useState("");
+
   
   useEffect(() => {
     async function fetchWallets() {
@@ -209,9 +227,139 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     }
   };
 
-  if (selectedPortfolio) {
-    return (
-      <div className="space-y-6">
+  const handleAddIncome = async () => {
+  try {
+    if (!selectedPortfolio) return;
+
+    const importe = parseFloat(parseFloat(incomeAmount).toFixed(2));
+    if (isNaN(importe) || importe <= 0) {
+      alert("El importe debe ser mayor que 0.");
+      return;
+    }
+    if (!incomeDate) {
+      alert("La fecha es obligatoria.");
+      return;
+    }
+    if (!expenseDate) {
+      alert("La fecha es obligatoria.");
+      return;
+    }
+
+    const ingreso = {
+      cartera_nombre: selectedPortfolio.name,
+      id_usuario: userId,
+      importe,
+      fecha: incomeDate, // formato yyyy-mm-dd
+      descripcion: incomeDescription || "Ingreso",
+    };
+
+    const { error } = await createIngreso(ingreso);
+    if (error) {
+      alert("Error al registrar el ingreso: " + error);
+      return;
+    }
+
+    // recalcular saldo
+    const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
+    await actualizarSaldoCartera(selectedPortfolio.name, userId);
+
+    // actualizar UI localmente
+    setPortfolios((prev) =>
+      prev.map((p) =>
+        p.name === selectedPortfolio.name
+          ? {
+              ...p,
+              balance: `${nuevoSaldo.toLocaleString("es-ES", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}€`,
+              transactions: p.transactions + 1,
+              lastUpdate: "Ahora",
+            }
+          : p
+      )
+    );
+
+    setIncomeAmount("");
+    setIncomeDate("");
+    setIncomeDescription("");
+    setIsIncomeDialogOpen(false);
+  } catch (err) {
+    console.error("Error al añadir ingreso:", err);
+    alert("Error inesperado al añadir ingreso.");
+  }
+};
+
+const handleAddExpense = async () => {
+  try {
+    if (!selectedPortfolio) return;
+
+    const importe = parseFloat(parseFloat(expenseAmount).toFixed(2));
+    if (isNaN(importe) || importe <= 0) {
+      alert("El importe debe ser mayor que 0.");
+      return;
+    }
+    if (!expenseCategory) {
+      alert("Debes seleccionar una categoría.");
+      return;
+    }
+    if (!expenseDate) {
+      alert("La fecha es obligatoria.");
+      return;
+    }
+
+    const gasto = {
+      cartera_nombre: selectedPortfolio.name,
+      id_usuario: userId,
+      categoria_nombre: expenseCategory.toLowerCase(),
+      importe,
+      fecha: expenseDate,
+      descripcion: expenseDescription || "Gasto",
+      fijo: false,
+    };
+
+    const { error } = await createGasto(gasto);
+    if (error) {
+      alert("Error al registrar el gasto: " + error);
+      return;
+    }
+
+    // recalcular saldo
+    const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
+    await actualizarSaldoCartera(selectedPortfolio.name, userId);
+
+    // actualizar UI localmente
+    setPortfolios((prev) =>
+      prev.map((p) =>
+        p.name === selectedPortfolio.name
+          ? {
+              ...p,
+              balance: `${nuevoSaldo.toLocaleString("es-ES", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}€`,
+              transactions: p.transactions + 1,
+              lastUpdate: "Ahora",
+            }
+          : p
+      )
+    );
+
+    setExpenseAmount("");
+    setExpenseCategory("");
+    setExpenseDate("");
+    setExpenseDescription("");
+    setIsExpenseDialogOpen(false);
+  } catch (err) {
+    console.error("Error al añadir gasto:", err);
+    alert("Error inesperado al añadir gasto.");
+  }
+};
+
+if (selectedPortfolio) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
@@ -221,7 +369,7 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
                 if (onNavigateBack) {
                   onNavigateBack(previousView);
                 } else {
-                  setSelectedPortfolio(null); 
+                  setSelectedPortfolio(null);
                 }
               } else {
                 setSelectedPortfolio(null);
@@ -236,78 +384,211 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Balance Total</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{selectedPortfolio.balance}</div>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                {selectedPortfolio.trend === "up" ? (
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                )}
-                <span className={selectedPortfolio.trend === "up" ? "text-green-600" : "text-red-600"}>
-                  {selectedPortfolio.monthlyChange}
-                </span>
-              </p>
-            </CardContent>
-          </Card>
+        {/* NUEVO: botones de Ingreso y Gasto */}
+        <div className="flex gap-2">
+          <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <DollarSign className="h-4 w-4" />
+                Añadir Ingreso
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Registrar Ingreso</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="income-amount">Importe</Label>
+                  <Input
+                    id="income-amount"
+                    type="number"
+                    placeholder="0.00"
+                    value={incomeAmount}
+                    onChange={(e) => setIncomeAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="income-date">Fecha</Label>
+                  <Input
+                    id="income-date"
+                    type="date"
+                    value={incomeDate}
+                    onChange={(e) => setIncomeDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="income-description">Descripción (opcional)</Label>
+                  <Textarea
+                    id="income-description"
+                    placeholder="Ej: Salario mensual, freelance..."
+                    value={incomeDescription}
+                    onChange={(e) => setIncomeDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleAddIncome} className="w-full">
+                  Registrar Ingreso
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Transacciones</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{selectedPortfolio.transactions}</div>
-              <p className="text-xs text-gray-500 mt-1">Este mes</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Última Actualización</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl">●</div>
-              <p className="text-xs text-gray-500 mt-1">{selectedPortfolio.lastUpdate}</p>
-            </CardContent>
-          </Card>
+          <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Añadir Gasto
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Registrar Gasto</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="expense-amount">Importe</Label>
+                  <Input
+                    id="expense-amount"
+                    type="number"
+                    placeholder="0.00"
+                    value={expenseAmount}
+                    onChange={(e) => setExpenseAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expense-category">Categoría</Label>
+                  <Select value={expenseCategory} onValueChange={setExpenseCategory}>
+                    <SelectTrigger id="expense-category">
+                      <SelectValue placeholder="Selecciona una categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Ocio">Ocio</SelectItem>
+                      <SelectItem value="Hogar">Hogar</SelectItem>
+                      <SelectItem value="Transporte">Transporte</SelectItem>
+                      <SelectItem value="Comida">Comida</SelectItem>
+                      <SelectItem value="Factura">Factura</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expense-date">Fecha</Label>
+                  <Input
+                    id="expense-date"
+                    type="date"
+                    value={expenseDate}
+                    onChange={(e) => setExpenseDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expense-description">Descripción (opcional)</Label>
+                  <Textarea
+                    id="expense-description"
+                    placeholder="Ej: Supermercado, gasolina..."
+                    value={expenseDescription}
+                    onChange={(e) => setExpenseDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleAddExpense} className="w-full">
+                  Registrar Gasto
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Balance Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{selectedPortfolio.balance}</div>
+            <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+              {selectedPortfolio.trend === "up" ? (
+                <TrendingUp className="h-3 w-3 text-green-600" />
+              ) : (
+                <TrendingDown className="h-3 w-3 text-red-600" />
+              )}
+              <span
+                className={
+                  selectedPortfolio.trend === "up" ? "text-green-600" : "text-red-600"
+                }
+              >
+                {selectedPortfolio.monthlyChange}
+              </span>
+            </p>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Transacciones Recientes</CardTitle>
+            <CardTitle className="text-sm">Transacciones</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { description: "Salario Mensual", category: "Ingreso", date: "15 Oct 2025", amount: "+3,500.00€", type: "income" },
-                { description: "Supermercado Carrefour", category: "Alimentación", date: "14 Oct 2025", amount: "-245.80€", type: "expense" },
-                { description: "Transferencia Ahorros", category: "Transferencia", date: "13 Oct 2025", amount: "-1,000.00€", type: "expense" },
-                { description: "Freelance Proyecto", category: "Ingreso", date: "12 Oct 2025", amount: "+850.00€", type: "income" },
-                { description: "Pago Servicios", category: "Servicios", date: "11 Oct 2025", amount: "-180.50€", type: "expense" },
-              ].map((transaction, index) => (
-                <div key={index} className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0">
-                  <div className="flex-1">
-                    <p className="font-semibold">{transaction.description}</p>
-                    <p className="text-sm text-gray-500">{transaction.category} · {transaction.date}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${transaction.type === "income" ? "text-green-600" : "text-red-600"}`}>
-                      {transaction.amount}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="text-2xl font-bold">
+              {selectedPortfolio.transactions}
             </div>
+            <p className="text-xs text-gray-500 mt-1">Este mes</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Última Actualización</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl">●</div>
+            <p className="text-xs text-gray-500 mt-1">
+              {selectedPortfolio.lastUpdate}
+            </p>
           </CardContent>
         </Card>
       </div>
-    );
-  }
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Transacciones Recientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[
+              { description: "Salario Mensual", category: "Ingreso", date: "15 Oct 2025", amount: "+3,500.00€", type: "income" },
+              { description: "Supermercado Carrefour", category: "Alimentación", date: "14 Oct 2025", amount: "-245.80€", type: "expense" },
+              { description: "Transferencia Ahorros", category: "Transferencia", date: "13 Oct 2025", amount: "-1,000.00€", type: "expense" },
+              { description: "Freelance Proyecto", category: "Ingreso", date: "12 Oct 2025", amount: "+850.00€", type: "income" },
+              { description: "Pago Servicios", category: "Servicios", date: "11 Oct 2025", amount: "-180.50€", type: "expense" },
+            ].map((transaction, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0"
+              >
+                <div className="flex-1">
+                  <p className="font-semibold">{transaction.description}</p>
+                  <p className="text-sm text-gray-500">
+                    {transaction.category} · {transaction.date}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p
+                    className={`font-semibold ${
+                      transaction.type === "income"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {transaction.amount}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 
   return (
     <div className="space-y-6">
