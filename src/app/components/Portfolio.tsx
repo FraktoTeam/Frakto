@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { getCarteras, createCartera, editCartera, deleteCartera } from "@/services/carterasService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
@@ -326,6 +326,9 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nueva Cartera</DialogTitle>
+              <DialogDescription>
+                Introduce el nombre y el saldo inicial de la nueva cartera.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               {/* Nombre */}
@@ -363,6 +366,9 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Cartera</DialogTitle>
+              <DialogDescription>
+                Cambia el nombre de tu cartera.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
@@ -386,6 +392,9 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confirmar eliminación</DialogTitle>
+              <DialogDescription>
+                Confirma la eliminación de la cartera.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <p className="text-sm text-gray-600">
