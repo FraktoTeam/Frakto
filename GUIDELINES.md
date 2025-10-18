@@ -46,38 +46,6 @@ Para elementos que requieren mayor presencia visual:
 
 **IMPORTANTE**: No utilizar clases de Tailwind para `font-size`, `font-weight` o `line-height` a menos que sea específicamente necesario, ya que tenemos configuraciones por defecto en `globals.css`.
 
-## Estructura del Proyecto
-
-
-
-## Componentes Principales
-
-### App.tsx
-Componente raíz que gestiona:
-- Navegación entre vistas
-- Menú lateral desplegable con hover
-- Estado global de la aplicación
-
-**Características del menú lateral:**
-- Ancho por defecto: 20 (solo iconos)
-- Ancho expandido: 64 (con hover)
-- Transición suave de 300ms
-- Sticky user info en la parte inferior
-
-### Home.tsx
-Dashboard principal que muestra:
-- 4 métricas principales en grid responsivo
-- Actividad reciente de carteras
-- Distribución de inversiones por tipo
-- Top carteras por rendimiento
-
-### Portfolio.tsx
-Gestión de carteras con:
-- Vista de lista de todas las carteras
-- Vista detallada de cartera individual
-- Formulario para añadir nuevas carteras
-- Información de activos dentro de cada cartera
-
 ## Guía de Codificación
 
 Esta sección define los estándares de código para mantener consistencia en todo el proyecto Frakto.
@@ -711,26 +679,6 @@ Antes de considerar completada una funcionalidad, verificar:
 - [ ] ¿Los comentarios son útiles y no obvios?
 - [ ] ¿Se siguen los colores de la marca (verde en lugar de azul)?
 
-## Componentes ShadCN Utilizados
-
-- **Button**: Botones principales y secundarios
-- **Card**: Contenedores de información
-- **Dialog**: Modales para formularios
-- **Input**: Campos de entrada de texto
-- **Label**: Etiquetas de formularios
-
-## Iconos (Lucide React)
-
-Iconos principales usados:
-- `Home`: Página de inicio
-- `Briefcase`: Carteras
-- `BarChart3`: Análisis
-- `Settings`: Configuración
-- `TrendingUp/TrendingDown`: Tendencias
-- `Plus`: Añadir elementos
-- `Eye`: Ver detalles
-- `ArrowLeft`: Volver atrás
-
 ## Responsive Design
 
 ### Breakpoints
@@ -762,35 +710,10 @@ className={`... ${
 
 ## Datos y Estado
 
-### Mock Data
-Actualmente la aplicación usa datos de ejemplo (mock data):
-- Carteras predefinidas
-- Métricas de ejemplo
-- Actividad simulada
-
 ### Gestión de Estado
 - `useState` para estado local
 - Paso de props para comunicación entre componentes
 - Estados elevados en App.tsx cuando sea necesario
-
-## Futuras Mejoras Sugeridas
-
-1. **Backend Integration**
-   - Conectar con Supabase para persistencia
-   - Autenticación de usuarios
-   - API para gestión de carteras
-
-2. **Características Adicionales**
-   - Sección de Análisis con gráficos
-   - Configuración de usuario
-   - Exportación de datos
-   - Notificaciones en tiempo real
-
-3. **UX Enhancements**
-   - Filtros y búsqueda en carteras
-   - Ordenamiento de tablas
-   - Drag & drop para reordenar
-   - Temas claro/oscuro
 
 ## Notas Importantes
 
