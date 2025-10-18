@@ -45,7 +45,10 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
         const formatted: PortfolioItem[] = data.map((c) => ({
           id: c.id_usuario,
           name: c.nombre,
-          balance: `${c.saldo.toFixed(2)}€`,
+          balance: `${c.saldo.toLocaleString("es-ES", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}€`,
           monthlyChange: "0.00€",
           trend: "up", 
           transactions: 0,
@@ -172,7 +175,10 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
       const newPortfolio: PortfolioItem = {
         id: portfolios.length + 1,
         name: nueva.nombre,
-        balance: `${nueva.saldo.toFixed(2)}€`,
+        balance: `${nueva.saldo.toLocaleString("es-ES", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}€`,
         monthlyChange: "0.00€",
         trend: "up",
         transactions: 0,
