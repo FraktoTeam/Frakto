@@ -206,3 +206,52 @@ export async function actualizarSaldoCartera(
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Obtiene los 10 últimos movimientos (ingresos + gastos)
+ * de un usuario desde la función RPC de Supabase
+ */
+export async function getUltimosMovimientosUsuario(id_usuario: number) {
+  try {
+    const { data, error } = await createClient
+      .rpc("get_ultimos_movimientos_usuario", { p_id_usuario: id_usuario });
+
+    if (error) {
+      console.error("Error obteniendo movimientos de usuario:", error);
+      return { data: [], error: error.message };
+    }
+
+    return { data, error: null };
+  } catch (err: any) {
+    console.error("Error inesperado en getUltimosMovimientosUsuario:", err);
+    return { data: [], error: err.message };
+  }
+}
+
+/**
+ * Obtiene los 10 últimos movimientos (ingresos + gastos)
+ * de una cartera específica de un usuario desde la función RPC
+ */
+export async function getUltimosMovimientosCartera(
+  id_usuario: number,
+  cartera_nombre: string
+) {
+  try {
+    const { data, error } = await createClient
+      .rpc("get_ultimos_movimientos_cartera", {
+        p_id_usuario: id_usuario,
+        p_cartera_nombre: cartera_nombre,
+      });
+
+    if (error) {
+      console.error("Error obteniendo movimientos de cartera:", error);
+      return { data: [], error: error.message };
+    }
+
+    return { data, error: null };
+  } catch (err: any) {
+    console.error("Error inesperado en getUltimosMovimientosCartera:", err);
+    return { data: [], error: err.message };
+  }
+}
+

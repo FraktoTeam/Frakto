@@ -12,6 +12,11 @@ import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCarter
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DollarSign, ShoppingCart } from "lucide-react";
+import { 
+  getUltimosMovimientosUsuario, 
+  getUltimosMovimientosCartera 
+} from "@/services/transaccionService";
+
 
 
 interface PortfolioItem {
@@ -57,6 +62,8 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
 
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+
   
   async function fetchWallets() {
     try {
@@ -370,6 +377,25 @@ const handleAddExpense = async () => {
   }
 };
 
+useEffect(() => {
+  async function fetchMovements() {
+    if (!selectedPortfolio) return;
+    try {
+      const { data, error } = await getUltimosMovimientosCartera(userId, selectedPortfolio.name);
+      if (error) {
+        console.error("Error obteniendo movimientos de cartera:", error);
+        return;
+      }
+      setRecentTransactions(data || []);
+    } catch (err) {
+      console.error("Error inesperado al obtener movimientos:", err);
+    }
+  }
+
+  fetchMovements();
+}, [selectedPortfolio, userId]);
+
+
 if (selectedPortfolio) {
   return (
     <div className="space-y-6">
@@ -572,36 +598,48 @@ if (selectedPortfolio) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              { description: "Salario Mensual", category: "Ingreso", date: "15 Oct 2025", amount: "+3,500.00€", type: "income" },
-              { description: "Supermercado Carrefour", category: "Alimentación", date: "14 Oct 2025", amount: "-245.80€", type: "expense" },
-              { description: "Transferencia Ahorros", category: "Transferencia", date: "13 Oct 2025", amount: "-1,000.00€", type: "expense" },
-              { description: "Freelance Proyecto", category: "Ingreso", date: "12 Oct 2025", amount: "+850.00€", type: "income" },
-              { description: "Pago Servicios", category: "Servicios", date: "11 Oct 2025", amount: "-180.50€", type: "expense" },
-            ].map((transaction, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0"
-              >
-                <div className="flex-1">
-                  <p className="font-semibold">{transaction.description}</p>
-                  <p className="text-sm text-gray-500">
-                    {transaction.category} · {transaction.date}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p
-                    className={`font-semibold ${
-                      transaction.type === "income"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {transaction.amount}
-                  </p>
-                </div>
-              </div>
-            ))}
+           {recentTransactions.length === 0 ? (
+  <p className="text-gray-500 text-center py-4">
+    No hay movimientos recientes.
+  </p>
+) : (
+  recentTransactions.map((transaction, index) => (
+    <div
+      key={index}
+      className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0"
+    >
+      <div className="flex-1">
+        <p className="font-semibold">
+          {transaction.descripcion || "Movimiento"}
+        </p>
+        <p className="text-sm text-gray-500">
+          {transaction.tipo === "ingreso" ? "Ingreso" : "Gasto"} ·{" "}
+          {new Date(transaction.fecha).toLocaleDateString("es-ES", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+      <div className="text-right">
+        <p
+          className={`font-semibold ${
+            transaction.tipo === "ingreso"
+              ? "text-green-600"
+              : "text-red-600"
+          }`}
+        >
+          {transaction.tipo === "ingreso" ? "+" : "-"}
+          {Number(Math.abs(transaction.importe)).toLocaleString("es-ES", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}€
+        </p>
+      </div>
+    </div>
+  ))
+)}
+
           </div>
         </CardContent>
       </Card>
