@@ -758,7 +758,7 @@ if (selectedPortfolio) {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {portfolios.length === 0 ? (
-          <div className="fixed inset-0 flex items-center justify-center">
+          <div className="flex items-center justify-center">
             <p className="text-2xl md:text-3xl font-semibold text-gray-500 text-center">
               No hay carteras registradas aún.
             </p>
