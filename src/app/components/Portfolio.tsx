@@ -55,30 +55,36 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
   const [expenseDate, setExpenseDate] = useState("");
   const [expenseDescription, setExpenseDescription] = useState("");
 
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
   
-  useEffect(() => {
-    async function fetchWallets() {
-      try {
-        const data = await getCarteras(userId);
-        const formatted: PortfolioItem[] = data.map((c) => ({
-          id: c.id_usuario,
-          name: c.nombre,
-          balance: `${c.saldo.toLocaleString("es-ES", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}€`,
-          monthlyChange: "0.00€",
-          trend: "up", 
-          transactions: 0,
-          lastUpdate: "Ahora",
-        }));
-        setPortfolios(formatted);
-      } catch (err) {
-        console.error("Error al obtener carteras:", err);
-      } finally {
-        setLoading(false);
-      }
+  async function fetchWallets() {
+    try {
+      setLoading(true);
+      const data = await getCarteras(userId);
+      const formatted: PortfolioItem[] = data.map((c) => ({
+        id: c.id_usuario,
+        name: c.nombre,
+        balance: `${c.saldo.toLocaleString("es-ES", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}€`,
+        monthlyChange: "0.00€",
+        trend: "up",
+        transactions: 0,
+        lastUpdate: "Ahora",
+      }));
+      setPortfolios(formatted);
+      return formatted; 
+    } catch (err) {
+      console.error("Error al obtener carteras:", err);
+      return [];
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchWallets();
   }, [userId]);
 
@@ -164,13 +170,11 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     let valid = true;
     const newErrors = { name: "", balance: "" };
 
-    // Validación del nombre
     if (!nameRegex.test(newPortfolioName)) {
       newErrors.name = "El nombre solo puede contener letras y números (sin espacios).";
       valid = false;
     }
 
-    // Validación del balance
     const balanceValue = parseFloat(parseFloat(newPortfolioBalance).toFixed(2));
     if (!balanceRegex.test(newPortfolioBalance) || balanceValue < 0) {
       newErrors.balance = "Debe ser un número mayor o igual que 0 con hasta 2 decimales.";
@@ -240,10 +244,6 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
       alert("La fecha es obligatoria.");
       return;
     }
-    if (!expenseDate) {
-      alert("La fecha es obligatoria.");
-      return;
-    }
 
     const ingreso = {
       cartera_nombre: selectedPortfolio.name,
@@ -259,11 +259,14 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
       return;
     }
 
-    // recalcular saldo
     const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
-    await actualizarSaldoCartera(selectedPortfolio.name, userId);
+    await actualizarSaldoCartera(
+      selectedPortfolio.name,
+      userId,
+      importe,
+      "ingreso"
+    );
 
-    // actualizar UI localmente
     setPortfolios((prev) =>
       prev.map((p) =>
         p.name === selectedPortfolio.name
@@ -284,6 +287,9 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     setIncomeDate("");
     setIncomeDescription("");
     setIsIncomeDialogOpen(false);
+    setConfirmMessage("Ingreso registrado correctamente ✅");
+    setIsConfirmDialogOpen(true);
+
   } catch (err) {
     console.error("Error al añadir ingreso:", err);
     alert("Error inesperado al añadir ingreso.");
@@ -318,17 +324,22 @@ const handleAddExpense = async () => {
       fijo: false,
     };
 
+    console.log("Gasto a enviar:", gasto);
+
     const { error } = await createGasto(gasto);
     if (error) {
       alert("Error al registrar el gasto: " + error);
       return;
     }
 
-    // recalcular saldo
     const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
-    await actualizarSaldoCartera(selectedPortfolio.name, userId);
+    await actualizarSaldoCartera(
+      selectedPortfolio.name,
+      userId,
+      importe,
+      "gasto"
+    );
 
-    // actualizar UI localmente
     setPortfolios((prev) =>
       prev.map((p) =>
         p.name === selectedPortfolio.name
@@ -350,6 +361,9 @@ const handleAddExpense = async () => {
     setExpenseDate("");
     setExpenseDescription("");
     setIsExpenseDialogOpen(false);
+    setConfirmMessage("Gasto registrado correctamente ✅");
+    setIsConfirmDialogOpen(true);
+
   } catch (err) {
     console.error("Error al añadir gasto:", err);
     alert("Error inesperado al añadir gasto.");
@@ -396,6 +410,9 @@ if (selectedPortfolio) {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Registrar Ingreso</DialogTitle>
+                <DialogDescription>
+                  Completa los campos para registrar un nuevo ingreso en tu cartera.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
@@ -443,6 +460,9 @@ if (selectedPortfolio) {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Registrar Gasto</DialogTitle>
+                <DialogDescription>
+                  Completa los campos para registrar un nuevo gasto en tu cartera.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
@@ -585,6 +605,31 @@ if (selectedPortfolio) {
           </div>
         </CardContent>
       </Card>
+      {/* Popup de confirmación */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent className="text-center">
+          <DialogHeader>
+            <DialogTitle className="text-green-600">{confirmMessage}</DialogTitle>
+            <DialogDescription>
+              Los datos se han guardado correctamente.
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            className="mt-4 w-full"
+            onClick={async () => {
+              setIsConfirmDialogOpen(false);
+
+              const updatedWallets = await fetchWallets(); // 🆕 trae y devuelve los datos
+              const updated = updatedWallets.find(
+                (p) => p.name === selectedPortfolio?.name
+              );
+              if (updated) setSelectedPortfolio(updated); // 🔁 actualiza cartera visible
+            }}
+          >
+            Aceptar
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -712,7 +757,14 @@ if (selectedPortfolio) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {portfolios.map((portfolio) => (
+        {portfolios.length === 0 ? (
+          <div className="fixed inset-0 flex items-center justify-center">
+            <p className="text-2xl md:text-3xl font-semibold text-gray-500 text-center">
+              No hay carteras registradas aún.
+            </p>
+          </div>
+        ) : (
+          portfolios.map((portfolio) => (
           <Card key={`${portfolio.name}-${userId}`} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -777,7 +829,8 @@ if (selectedPortfolio) {
               </div>
             </CardContent>
           </Card>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );

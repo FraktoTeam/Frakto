@@ -14,6 +14,13 @@ jest.mock("@/services/carterasService", () => ({
   deleteCartera: jest.fn(),
 }));
 
+jest.mock("@/services/transaccionService", () => ({
+  getIngresos: jest.fn().mockResolvedValue([]),
+  getGastos: jest.fn().mockResolvedValue([]),
+  createIngreso: jest.fn().mockResolvedValue({ data: null, error: null }),
+  createGasto: jest.fn().mockResolvedValue({ data: null, error: null }),
+}));
+
 describe("💼 Portfolio Component (integración ligera)", () => {
   const mockUserId = 1;
 

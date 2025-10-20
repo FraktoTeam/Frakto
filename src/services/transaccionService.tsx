@@ -17,7 +17,7 @@ export interface Ingreso {
 export interface Gasto {
   cartera_nombre: string;
   id_usuario: number;
-  categoria_nombre: "ocio" | "hogar" | "transporte" | "comida" | "factura";
+  categoria_nombre: string;
   importe: number;
   fecha: string; // formato dd-mm-aaaa
   descripcion?: string;
@@ -142,17 +142,67 @@ export async function deleteGasto(
 }
 
 /**
- * Calcula el saldo actual de una cartera (ingresos - gastos)
+ * Calcula el saldo actual de una cartera (saldo inicial + ingresos - gastos)
  */
 export async function calcularSaldoCartera(
   cartera_nombre: string,
   id_usuario: number
 ): Promise<number> {
+  const { data: cartera, error: carteraError } = await createClient
+    .from("cartera")
+    .select("saldo")
+    .eq("nombre", cartera_nombre)
+    .eq("id_usuario", id_usuario)
+    .single();
+
+  if (carteraError || !cartera) {
+    console.error("Error obteniendo saldo inicial:", carteraError?.message);
+    return 0;
+  }
+
   const ingresos = await getIngresos(cartera_nombre, id_usuario);
   const gastos = await getGastos(cartera_nombre, id_usuario);
 
   const totalIngresos = ingresos.reduce((sum, i) => sum + i.importe, 0);
   const totalGastos = gastos.reduce((sum, g) => sum + g.importe, 0);
 
-  return totalIngresos - totalGastos;
+  const saldoFinal = cartera.saldo + totalIngresos - totalGastos;
+
+  return saldoFinal;
+}
+
+/**
+ * Actualiza el saldo de la cartera
+ */
+export async function actualizarSaldoCartera(
+  cartera_nombre: string,
+  id_usuario: number,
+  importe: number,
+  tipo: "ingreso" | "gasto"
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { data, error: fetchError } = await createClient
+      .from("cartera")
+      .select("saldo")
+      .eq("nombre", cartera_nombre)
+      .eq("id_usuario", id_usuario)
+      .single();
+
+    if (fetchError || !data) return { success: false, error: fetchError?.message ?? "Cartera no encontrada" };
+
+    const nuevoSaldo = tipo === "ingreso"
+      ? data.saldo + importe
+      : data.saldo - importe;
+
+    const { error: updateError } = await createClient
+      .from("cartera")
+      .update({ saldo: nuevoSaldo })
+      .eq("nombre", cartera_nombre)
+      .eq("id_usuario", id_usuario);
+
+    if (updateError) return { success: false, error: updateError.message };
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
