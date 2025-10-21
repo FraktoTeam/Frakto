@@ -8,16 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
-import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCartera } from "@/services/transaccionService";
+import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCartera, 
+  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera } from "@/services/transaccionService";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DollarSign, ShoppingCart } from "lucide-react";
-import { 
-  getUltimosMovimientosUsuario, 
-  getUltimosMovimientosCartera 
-} from "@/services/transaccionService";
-
-
 
 interface PortfolioItem {
   id: number;
@@ -148,25 +143,30 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     if (!deletingPortfolio) return;
 
     try {
-      const { success, error } = await deleteCartera(userId, deletingPortfolio.name);
+      setDeleteError("");
 
-      if (error) {
-        setDeleteError("Error al eliminar la cartera. Intenta nuevamente.");
-        console.error("Error eliminando cartera:", error);
+      const { success: transSuccess, error: transError } = await deleteTransaccionesCartera(
+        deletingPortfolio.id,
+        deletingPortfolio.name
+      );
+
+      if (!transSuccess) {
+        console.error("Error al eliminar transacciones:", transError);
+        setDeleteError("No se pudieron eliminar las transacciones asociadas.");
         return;
       }
 
-      if (success) {
-        setPortfolios((prev) =>
-          prev.filter((p) => p.name !== deletingPortfolio.name)
-        );
-        setIsDeleteDialogOpen(false);
-        setDeletingPortfolio(null);
-        setDeleteError("");
-      }
-    } catch (err) {
-      console.error("Error inesperado al eliminar:", err);
-      setDeleteError("Error inesperado al eliminar la cartera.");
+      await deleteCartera(deletingPortfolio.id, deletingPortfolio.name);
+
+      setPortfolios((prev: PortfolioItem[]) =>
+        prev.filter((c: PortfolioItem) => c.name !== deletingPortfolio.name)
+      );
+
+      setIsDeleteDialogOpen(false);
+      setDeletingPortfolio(null);
+    } catch (err: any) {
+      console.error("Error al eliminar cartera:", err);
+      setDeleteError("Ocurrió un error al eliminar la cartera.");
     }
   };
 
@@ -600,7 +600,7 @@ if (selectedPortfolio) {
           <div className="space-y-4">
            {recentTransactions.length === 0 ? (
   <p className="text-gray-500 text-center py-4">
-    No hay movimientos recientes.
+    No hay movimientos registrados todavía.
   </p>
 ) : (
   recentTransactions.map((transaction, index) => (
@@ -763,8 +763,8 @@ if (selectedPortfolio) {
             <div className="space-y-4 pt-4">
               <p className="text-sm text-gray-600">
                 ¿Estás seguro de que deseas eliminar la cartera{" "}
-                <span className="font-semibold">{deletingPortfolio?.name}</span>? <br />
-                Esta acción no se puede deshacer.
+                <span className="font-semibold">{deletingPortfolio?.name}</span> y todas sus transacciones asociadas? <br />
+                <span className="font-bold">Esta acción no se puede deshacer.</span>
               </p>
 
               {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}

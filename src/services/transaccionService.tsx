@@ -40,9 +40,9 @@ const service = {
     return data ?? [];
   },
 
-/**
- * Obtiene todos los gastos de una cartera
- */
+  /**
+   * Obtiene todos los gastos de una cartera
+   */
   async getGastos(cartera_nombre: string, id_usuario: number): Promise<Gasto[]> {
     const { data, error } = await createClient
       .from("gasto")
@@ -55,9 +55,9 @@ const service = {
     return data ?? [];
   },
 
-/**
- * Crea un nuevo ingreso validando importe y fecha
- */
+  /**
+   * Crea un nuevo ingreso validando importe y fecha
+   */
   async createIngreso(ingreso: Ingreso): Promise<{ data: any; error: string | null }> {
     const { data, error, status } = await createClient
       .from("ingreso")
@@ -69,9 +69,9 @@ const service = {
     return { data, error: null };
   },
 
-/**
- * Crea un nuevo gasto validando importe, fecha y categoría
- */
+  /**
+   * Crea un nuevo gasto validando importe, fecha y categoría
+   */
   async createGasto(
     gasto: Gasto
   ): Promise<{ data: Gasto | null; error: string | null }> {
@@ -99,9 +99,9 @@ const service = {
     return { data, error: null };
   },
 
-/**
- * Elimina un ingreso por id y cartera
- */
+  /**
+   * Elimina un ingreso por id y cartera
+   */
   async deleteIngreso(
     id_usuario: number,
     cartera_nombre: string,
@@ -120,9 +120,9 @@ const service = {
     return { success: true, error: null };
   },
 
-/**
- * Elimina un gasto por id y cartera
- */
+  /**
+   * Elimina un gasto por id y cartera
+   */
   async deleteGasto(
     id_usuario: number,
     cartera_nombre: string,
@@ -141,9 +141,9 @@ const service = {
     return { success: true, error: null };
   },
 
-/**
- * Calcula el saldo actual de una cartera (saldo inicial + ingresos - gastos)
- */
+  /**
+   * Calcula el saldo actual de una cartera (saldo inicial + ingresos - gastos)
+   */
   async calcularSaldoCartera(
     cartera_nombre: string,
     id_usuario: number
@@ -171,9 +171,9 @@ const service = {
     return saldoFinal;
   },
 
-/**
- * Actualiza el saldo de la cartera
- */
+  /**
+   * Actualiza el saldo de la cartera
+   */
   async actualizarSaldoCartera(
     cartera_nombre: string,
     id_usuario: number,
@@ -207,10 +207,10 @@ const service = {
     }
   },
 
-/**
- * Obtiene los 10 últimos movimientos (ingresos + gastos)
- * de un usuario desde la función RPC de Supabase
- */
+  /**
+   * Obtiene los 10 últimos movimientos (ingresos + gastos)
+   * de un usuario desde la función RPC de Supabase
+   */
   async getUltimosMovimientosUsuario(id_usuario: number) {
     try {
       const { data, error } = await createClient
@@ -228,10 +228,10 @@ const service = {
     }
   },
 
-/**
- * Obtiene los 10 últimos movimientos (ingresos + gastos)
- * de una cartera específica de un usuario desde la función RPC
- */
+  /**
+   * Obtiene los 10 últimos movimientos (ingresos + gastos)
+   * de una cartera específica de un usuario desde la función RPC
+   */
   async getUltimosMovimientosCartera(
     id_usuario: number,
     cartera_nombre: string
@@ -254,6 +254,46 @@ const service = {
       return { data: [], error: err.message };
     }
   },
+
+  /**
+   * Elimina todos los ingresos y gastos asociados a una cartera
+   */
+  async deleteTransaccionesCartera(
+    id_usuario: number,
+    cartera_nombre: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      // Eliminar ingresos
+      const { error: ingresosError } = await createClient
+        .from("ingreso")
+        .delete()
+        .eq("id_usuario", id_usuario)
+        .eq("cartera_nombre", cartera_nombre);
+
+      if (ingresosError) {
+        console.error("Error eliminando ingresos:", ingresosError.message);
+        return { success: false, error: ingresosError.message };
+      }
+
+      // Eliminar gastos
+      const { error: gastosError } = await createClient
+        .from("gasto")
+        .delete()
+        .eq("id_usuario", id_usuario)
+        .eq("cartera_nombre", cartera_nombre);
+
+      if (gastosError) {
+        console.error("Error eliminando gastos:", gastosError.message);
+        return { success: false, error: gastosError.message };
+      }
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error inesperado al eliminar transacciones de cartera:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
 };
 
 // Export named wrapper functions that delegate to the service object so external API is unchanged
@@ -267,6 +307,8 @@ export const calcularSaldoCartera = (cartera_nombre: string, id_usuario: number)
 export const actualizarSaldoCartera = (cartera_nombre: string, id_usuario: number, importe: number, tipo: "ingreso" | "gasto") => service.actualizarSaldoCartera(cartera_nombre, id_usuario, importe, tipo);
 export const getUltimosMovimientosUsuario = (id_usuario: number) => service.getUltimosMovimientosUsuario(id_usuario);
 export const getUltimosMovimientosCartera = (id_usuario: number, cartera_nombre: string) => service.getUltimosMovimientosCartera(id_usuario, cartera_nombre);
+export const deleteTransaccionesCartera = (id_usuario: number, cartera_nombre: string) =>
+  service.deleteTransaccionesCartera(id_usuario, cartera_nombre);
 
 export default service;
 
