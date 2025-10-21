@@ -236,7 +236,7 @@ describe("transaccionService", () => {
   });
 
   // ---------- actualizarSaldoCartera ----------
-    it("actualizarSaldoCartera devuelve error si update falla", async () => {
+  it("actualizarSaldoCartera devuelve error si update falla", async () => {
     // Simula lectura del saldo correcta
     createClient.single.mockResolvedValueOnce({
         data: { saldo: 500 },
@@ -253,7 +253,7 @@ describe("transaccionService", () => {
     const result = await servicio.actualizarSaldoCartera("personal", 1, 100, "ingreso");
     expect(result.success).toBe(false);
     expect(result.error).toBe("update failed");
-    });
+  });
 
   // ---------- getUltimosMovimientosUsuario ----------
   it("getUltimosMovimientosUsuario devuelve error si RPC falla", async () => {
@@ -272,4 +272,122 @@ describe("transaccionService", () => {
     expect(result.error).toBe("boom");
   });
 
+});
+
+// Additional focused tests to increase coverage for service branches
+describe("transaccionService extra tests", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // ensure chainable mocks return this as in the main test file
+    createClient.from.mockReturnThis();
+    createClient.select.mockReturnThis();
+    createClient.eq.mockReturnThis();
+    createClient.order.mockReturnThis();
+    createClient.update.mockReturnThis();
+    createClient.delete.mockReturnThis();
+    createClient.single.mockReturnThis();
+    createClient.maybeSingle.mockReturnThis();
+    createClient.rpc.mockReturnThis();
+  });
+
+  it("deleteIngreso: returns success when sequence succeeds", async () => {
+    // 1) fetch ingreso importe
+    createClient.single.mockResolvedValueOnce({ data: { importe: 123 }, error: null });
+    // 2) delete on ingreso
+    createClient.delete.mockImplementationOnce(() => ({
+      eq: () => ({
+        eq: () => ({ error: null }),
+      }),
+    }));
+    // 3) actualizarSaldoCartera should be called (spy on default export)
+    jest.spyOn(serviceDefault, "actualizarSaldoCartera").mockResolvedValue({ success: true, error: null } as any);
+
+    const res = await servicio.deleteIngreso(1, "MiCartera", 11);
+    expect(res.success).toBe(true);
+    expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("MiCartera", 1, 123, "gasto");
+  });
+
+  it("deleteIngreso: handles missing ingreso fetch", async () => {
+    createClient.single.mockResolvedValueOnce({ data: null, error: { message: "not found" } });
+    const res = await servicio.deleteIngreso(1, "C", 99);
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/not found|Ingreso no encontrado/);
+  });
+
+  it("deleteGasto: returns success and adjusts saldo", async () => {
+    createClient.single.mockResolvedValueOnce({ data: { importe: 50 }, error: null });
+    createClient.delete.mockImplementationOnce(() => ({
+      eq: () => ({
+        eq: () => ({ error: null }),
+      }),
+    }));
+    jest.spyOn(serviceDefault, "actualizarSaldoCartera").mockResolvedValue({ success: true, error: null } as any);
+
+    const res = await servicio.deleteGasto(1, "CarteraX", 22);
+    expect(res.success).toBe(true);
+    expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("CarteraX", 1, 50, "ingreso");
+  });
+
+  it("editIngreso: updates and adjusts saldo by diferencia", async () => {
+    // fetch current importe
+    createClient.single.mockResolvedValueOnce({ data: { importe: 80 }, error: null });
+    // update the ingreso
+    createClient.update.mockImplementationOnce(() => ({
+      eq: () => ({
+        eq: () => ({ error: null }),
+      }),
+    }));
+    // spy actualizar
+    jest.spyOn(serviceDefault, "actualizarSaldoCartera").mockResolvedValue({ success: true, error: null } as any);
+
+    const res = await servicio.editIngreso(12, 1, "CarteraY", 100, "desc", "2025-10-20");
+    expect(res.success).toBe(true);
+    // diferencia = 20 -> should call actualizarSaldoCartera with tipo 'ingreso'
+    expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("CarteraY", 1, Math.abs(20), "ingreso");
+  });
+
+  it("editGasto: updates and adjusts saldo when gasto increases", async () => {
+    createClient.single.mockResolvedValueOnce({ data: { importe: 60 }, error: null });
+    createClient.update.mockImplementationOnce(() => ({
+      eq: () => ({
+        eq: () => ({ error: null }),
+      }),
+    }));
+    jest.spyOn(serviceDefault, "actualizarSaldoCartera").mockResolvedValue({ success: true, error: null } as any);
+
+    const res = await servicio.editGasto(21, 1, "C", 80, "d", "2025-10-20", "Comida");
+    expect(res.success).toBe(true);
+    // diferencia 20 -> since gasto increased, tipo should be 'gasto'
+    expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("C", 1, Math.abs(20), "gasto");
+  });
+
+  it("deleteTransaccionesCartera: handles DB error on ingresos deletion", async () => {
+    // simulate first delete (ingresos) failing via chained eq calls
+    createClient.delete.mockImplementationOnce(() => ({
+      eq: () => ({
+        eq: () => ({ error: { message: "ing fail" } }),
+      }),
+    }));
+    const res = await servicio.deleteTransaccionesCartera(1, "X");
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/ing fail/);
+  });
+
+  it("getNumeroTransacciones: returns total count correctly", async () => {
+    // first call (ingresos head count) - return object with eq method
+    createClient.select.mockImplementationOnce(() => ({ eq: () => ({ eq: () => ({ count: 2, error: null }) }) }));
+    // second call (gastos head count)
+    createClient.select.mockImplementationOnce(() => ({ eq: () => ({ eq: () => ({ count: 3, error: null }) }) }));
+
+    const r = await servicio.getNumeroTransacciones(1, "C");
+    expect(r.total).toBe(5);
+    expect(r.error).toBeNull();
+  });
+
+  it("getNumeroTransacciones: handles exceptions and returns 0", async () => {
+    createClient.select.mockImplementationOnce(() => { throw new Error("boom"); });
+    const r = await servicio.getNumeroTransacciones(1, "C");
+    expect(r.total).toBe(0);
+    expect(r.error).toBeDefined();
+  });
 });

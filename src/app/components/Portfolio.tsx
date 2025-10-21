@@ -1230,6 +1230,10 @@ if (selectedPortfolio) {
                     title="Eliminar cartera" 
                     size="icon"
                     className="group hover:bg-red-600 hover:text-white"
+                    onClick={() => {
+                      setDeletingPortfolio(portfolio);
+                      setIsDeleteDialogOpen(true);
+                    }}
                   >
                     <Trash2 className="h-4 w-4 text-red-600 group-hover:text-white" />
                   </Button>
