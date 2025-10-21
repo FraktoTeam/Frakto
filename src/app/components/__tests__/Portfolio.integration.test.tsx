@@ -30,7 +30,6 @@ describe("💼 Portfolio Component (integración ligera)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // prevent real alerts from interrupting tests
     (global as any).alert = jest.fn();
   });
 
