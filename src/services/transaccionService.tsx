@@ -100,45 +100,101 @@ const service = {
   },
 
   /**
-   * Elimina un ingreso por id y cartera
+   * Elimina un ingreso por su id_ingreso y actualiza el saldo de la cartera.
    */
   async deleteIngreso(
     id_usuario: number,
     cartera_nombre: string,
-    fecha: string,
-    importe: number
+    id_ingreso: number
   ): Promise<{ success: boolean; error: string | null }> {
-    const { error } = await createClient
-      .from("ingreso")
-      .delete()
-      .eq("id_usuario", id_usuario)
-      .eq("cartera_nombre", cartera_nombre)
-      .eq("fecha", fecha)
-      .eq("importe", importe);
+    try {
+      // 1️⃣ Obtener el importe antes de borrar
+      const { data: ingreso, error: fetchError } = await createClient
+        .from("ingreso")
+        .select("importe")
+        .eq("id_ingreso", id_ingreso)
+        .eq("id_usuario", id_usuario)
+        .single();
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, error: null };
+      if (fetchError || !ingreso) {
+        return { success: false, error: fetchError?.message ?? "Ingreso no encontrado." };
+      }
+
+      const importe = ingreso.importe;
+
+      // 2️⃣ Borrar el ingreso
+      const { error: deleteError } = await createClient
+        .from("ingreso")
+        .delete()
+        .eq("id_ingreso", id_ingreso)
+        .eq("id_usuario", id_usuario);
+
+      if (deleteError) return { success: false, error: deleteError.message };
+
+      // 3️⃣ Restar del saldo (eliminar ingreso → resta dinero)
+      const { error: saldoError } = await service.actualizarSaldoCartera(
+        cartera_nombre,
+        id_usuario,
+        importe,
+        "gasto"
+      );
+
+      if (saldoError) console.warn("Error actualizando saldo tras borrar ingreso:", saldoError);
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error eliminando ingreso:", err);
+      return { success: false, error: err.message };
+    }
   },
 
   /**
-   * Elimina un gasto por id y cartera
+   * Elimina un gasto por su id_gasto y actualiza el saldo de la cartera.
    */
   async deleteGasto(
     id_usuario: number,
     cartera_nombre: string,
-    fecha: string,
-    importe: number
+    id_gasto: number
   ): Promise<{ success: boolean; error: string | null }> {
-    const { error } = await createClient
-      .from("gasto")
-      .delete()
-      .eq("id_usuario", id_usuario)
-      .eq("cartera_nombre", cartera_nombre)
-      .eq("fecha", fecha)
-      .eq("importe", importe);
+    try {
+      // 1️⃣ Obtener el importe antes de borrar
+      const { data: gasto, error: fetchError } = await createClient
+        .from("gasto")
+        .select("importe")
+        .eq("id_gasto", id_gasto)
+        .eq("id_usuario", id_usuario)
+        .single();
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, error: null };
+      if (fetchError || !gasto) {
+        return { success: false, error: fetchError?.message ?? "Gasto no encontrado." };
+      }
+
+      const importe = gasto.importe;
+
+      // 2️⃣ Borrar el gasto
+      const { error: deleteError } = await createClient
+        .from("gasto")
+        .delete()
+        .eq("id_gasto", id_gasto)
+        .eq("id_usuario", id_usuario);
+
+      if (deleteError) return { success: false, error: deleteError.message };
+
+      // 3️⃣ Sumar al saldo (eliminar gasto → se recupera dinero)
+      const { error: saldoError } = await service.actualizarSaldoCartera(
+        cartera_nombre,
+        id_usuario,
+        importe,
+        "ingreso"
+      );
+
+      if (saldoError) console.warn("Error actualizando saldo tras borrar gasto:", saldoError);
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error eliminando gasto:", err);
+      return { success: false, error: err.message };
+    }
   },
 
   /**
@@ -238,7 +294,7 @@ const service = {
   ) {
     try {
       const { data, error } = await createClient
-        .rpc("get_ultimos_movimientos_cartera", {
+        .rpc("get_ultimos_movimientos", {
           p_id_usuario: id_usuario,
           p_cartera_nombre: cartera_nombre,
         });
@@ -329,6 +385,125 @@ const service = {
     }
   },
 
+    /**
+   * Edita un ingreso por id_ingreso y ajusta el saldo de la cartera por la diferencia.
+   */
+  async editIngreso(
+    id_ingreso: number,
+    id_usuario: number,
+    cartera_nombre: string,
+    newImporte: number,
+    newDescripcion?: string,
+    newFecha?: string // formato yyyy-mm-dd si lo usas así en DB
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      // 1) Obtener el importe actual
+      const { data: ingresoActual, error: fetchError } = await createClient
+        .from("ingreso")
+        .select("importe")
+        .eq("id_ingreso", id_ingreso)
+        .eq("id_usuario", id_usuario)
+        .single();
+
+      if (fetchError || !ingresoActual) {
+        return { success: false, error: fetchError?.message ?? "Ingreso no encontrado." };
+      }
+
+      const oldImporte = ingresoActual.importe;
+      const diferencia = newImporte - oldImporte;
+
+      // 2) Construir payload solo con los campos enviados
+      const updatePayload: Record<string, any> = { importe: newImporte };
+      if (typeof newDescripcion !== "undefined") updatePayload.descripcion = newDescripcion;
+      if (typeof newFecha !== "undefined") updatePayload.fecha = newFecha;
+
+      // 3) Actualizar el ingreso
+      const { error: updateError } = await createClient
+        .from("ingreso")
+        .update(updatePayload)
+        .eq("id_ingreso", id_ingreso)
+        .eq("id_usuario", id_usuario);
+
+      if (updateError) return { success: false, error: updateError.message };
+
+      // 4) Ajustar saldo por la diferencia
+      if (diferencia !== 0) {
+        await service.actualizarSaldoCartera(
+          cartera_nombre,
+          id_usuario,
+          Math.abs(diferencia),
+          diferencia > 0 ? "ingreso" : "gasto"
+        );
+      }
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error al editar ingreso:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  /**
+   * Edita un gasto por id_gasto y ajusta el saldo de la cartera por la diferencia.
+   */
+  async editGasto(
+    id_gasto: number,
+    id_usuario: number,
+    cartera_nombre: string,
+    newImporte: number,
+    newDescripcion?: string,
+    newFecha?: string,       // formato yyyy-mm-dd si lo usas así en DB
+    newCategoria?: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      // 1) Obtener el importe actual
+      const { data: gastoActual, error: fetchError } = await createClient
+        .from("gasto")
+        .select("importe")
+        .eq("id_gasto", id_gasto)
+        .eq("id_usuario", id_usuario)
+        .single();
+
+      if (fetchError || !gastoActual) {
+        return { success: false, error: fetchError?.message ?? "Gasto no encontrado." };
+      }
+
+      const oldImporte = gastoActual.importe;
+      const diferencia = newImporte - oldImporte;
+
+      // 2) Construir payload solo con los campos enviados
+      const updatePayload: Record<string, any> = { importe: newImporte };
+      if (typeof newDescripcion !== "undefined") updatePayload.descripcion = newDescripcion;
+      if (typeof newFecha !== "undefined") updatePayload.fecha = newFecha;
+      if (typeof newCategoria !== "undefined") updatePayload.categoria_nombre = newCategoria.toLowerCase();
+
+      // 3) Actualizar el gasto
+      const { error: updateError } = await createClient
+        .from("gasto")
+        .update(updatePayload)
+        .eq("id_gasto", id_gasto)
+        .eq("id_usuario", id_usuario);
+
+      if (updateError) return { success: false, error: updateError.message };
+
+      // 4) Ajustar saldo por la diferencia
+      if (diferencia !== 0) {
+        await service.actualizarSaldoCartera(
+          cartera_nombre,
+          id_usuario,
+          Math.abs(diferencia),
+          // si el gasto sube → resta saldo (tipo "gasto"); si baja → suma (tipo "ingreso")
+          diferencia > 0 ? "gasto" : "ingreso"
+        );
+      }
+
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Error al editar gasto:", err);
+      return { success: false, error: err.message };
+    }
+  },
+
 };
 
 // Export named wrapper functions that delegate to the service object so external API is unchanged
@@ -336,8 +511,8 @@ export const getIngresos = (cartera_nombre: string, id_usuario: number) => servi
 export const getGastos = (cartera_nombre: string, id_usuario: number) => service.getGastos(cartera_nombre, id_usuario);
 export const createIngreso = (ingreso: Ingreso) => service.createIngreso(ingreso);
 export const createGasto = (gasto: Gasto) => service.createGasto(gasto);
-export const deleteIngreso = (id_usuario: number, cartera_nombre: string, fecha: string, importe: number) => service.deleteIngreso(id_usuario, cartera_nombre, fecha, importe);
-export const deleteGasto = (id_usuario: number, cartera_nombre: string, fecha: string, importe: number) => service.deleteGasto(id_usuario, cartera_nombre, fecha, importe);
+export const deleteIngreso = (id_usuario: number, cartera_nombre: string, id_ingreso: number) => service.deleteIngreso(id_usuario, cartera_nombre, id_ingreso);
+export const deleteGasto = (id_usuario: number, cartera_nombre: string,  id_gasto: number) => service.deleteGasto(id_usuario, cartera_nombre, id_gasto);
 export const calcularSaldoCartera = (cartera_nombre: string, id_usuario: number) => service.calcularSaldoCartera(cartera_nombre, id_usuario);
 export const actualizarSaldoCartera = (cartera_nombre: string, id_usuario: number, importe: number, tipo: "ingreso" | "gasto") => service.actualizarSaldoCartera(cartera_nombre, id_usuario, importe, tipo);
 export const getUltimosMovimientosUsuario = (id_usuario: number) => service.getUltimosMovimientosUsuario(id_usuario);
@@ -346,6 +521,24 @@ export const deleteTransaccionesCartera = (id_usuario: number, cartera_nombre: s
   service.deleteTransaccionesCartera(id_usuario, cartera_nombre);
 export const getNumeroTransacciones = (id_usuario: number, cartera_nombre: string) =>
   service.getNumeroTransacciones(id_usuario, cartera_nombre);
+export const editIngreso = (
+  id_ingreso: number,
+  id_usuario: number,
+  cartera_nombre: string,
+  newImporte: number,
+  newDescripcion?: string,
+  newFecha?: string
+) => service.editIngreso(id_ingreso, id_usuario, cartera_nombre, newImporte, newDescripcion, newFecha);
+
+export const editGasto = (
+  id_gasto: number,
+  id_usuario: number,
+  cartera_nombre: string,
+  newImporte: number,
+  newDescripcion?: string,
+  newFecha?: string,
+  newCategoria?: string
+) => service.editGasto(id_gasto, id_usuario, cartera_nombre, newImporte, newDescripcion, newFecha, newCategoria);
 
 export default service;
 

@@ -4,15 +4,16 @@ import { useState, useEffect } from "react";
 import { getCarteras, createCartera, editCartera, deleteCartera } from "@/services/carterasService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
 import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCartera, 
-  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera, getNumeroTransacciones } from "@/services/transaccionService";
+  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera, getNumeroTransacciones, editGasto, editIngreso, deleteGasto, deleteIngreso } from "@/services/transaccionService";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { DollarSign, ShoppingCart } from "lucide-react";
+import { DollarSign, ShoppingCart, Edit } from "lucide-react";
 
 interface PortfolioItem {
   id: number;
@@ -62,6 +63,24 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
   const [ingresoCreado, setIngresoCreado] = useState(false);
   const [gastoCreado, setGastoCreado] = useState(false);
   
+  const [isEditTransactionDialogOpen, setIsEditTransactionDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [editTransactionAmount, setEditTransactionAmount] = useState("");
+  const [editTransactionDate, setEditTransactionDate] = useState("");
+  const [editTransactionDescription, setEditTransactionDescription] = useState("");
+  const [editTransactionCategory, setEditTransactionCategory] = useState("");
+
+  const [isDeleteTransactionDialogOpen, setIsDeleteTransactionDialogOpen] = useState(false);
+  const [deletingTransaction, setDeletingTransaction] = useState<any>(null);
+
+  const [incomeErrors, setIncomeErrors] = useState({ amount: "", date: "" });
+  const [expenseErrors, setExpenseErrors] = useState({ amount: "", category: "", date: "" });
+  const [editTransactionErrors, setEditTransactionErrors] = useState({
+    amount: "",
+    date: "",
+    category: "",
+  });
+
   async function fetchWallets() {
     try {
       setLoading(true);
@@ -79,7 +98,7 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
             })}€`,
             monthlyChange: "0.00€",
             trend: "up" as const,
-            transactions: total ?? 0, // ✅ valor real de Supabase
+            transactions: total ?? 0,
             lastUpdate: "Ahora",
           };
         })
@@ -249,96 +268,115 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
   };
 
   const handleAddIncome = async () => {
-  try {
+    const newErrors = { amount: "", date: "" };
+    setIncomeErrors(newErrors);
+
     if (!selectedPortfolio) return;
 
     const importe = parseFloat(parseFloat(incomeAmount).toFixed(2));
+
     if (isNaN(importe) || importe <= 0) {
-      alert("El importe debe ser mayor que 0.");
-      return;
+      newErrors.amount = "Debe ser un número mayor o igual que 0 con hasta 2 decimales.";
     }
+
     if (!incomeDate) {
-      alert("La fecha es obligatoria.");
+     newErrors.date = "La fecha es obligatoria.";
+    }
+
+    if (newErrors.amount || newErrors.date) {
+      setIncomeErrors(newErrors);
       return;
     }
 
-    const ingreso = {
-      cartera_nombre: selectedPortfolio.name,
-      id_usuario: userId,
-      importe,
-      fecha: incomeDate, // formato yyyy-mm-dd
-      descripcion: incomeDescription || "Ingreso",
-    };
+    try {
 
-    const { error } = await createIngreso(ingreso);
-    if (error) {
-      alert("Error al registrar el ingreso: " + error);
-      return;
+      const ingreso = {
+        cartera_nombre: selectedPortfolio.name,
+        id_usuario: userId,
+        importe,
+        fecha: incomeDate, // formato yyyy-mm-dd
+        descripcion: incomeDescription || "Ingreso",
+      };
+
+      const { error } = await createIngreso(ingreso);
+      if (error) {
+        newErrors.amount = "Error al registrar el ingreso. Inténtalo de nuevo.";
+        setIncomeErrors(newErrors);
+        return;
+      }
+
+      const { total } = await getNumeroTransacciones(
+        selectedPortfolio.id,
+        selectedPortfolio.name
+      );
+      setSelectedPortfolio((prev) =>
+        prev ? { ...prev, transactions: total } : prev
+      );
+      setIngresoCreado((prev) => !prev);
+
+      const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
+      await actualizarSaldoCartera(
+        selectedPortfolio.name,
+        userId,
+        importe,
+        "ingreso"
+      );
+
+      setPortfolios((prev) =>
+        prev.map((p) =>
+          p.name === selectedPortfolio.name
+            ? {
+                ...p,
+                balance: `${nuevoSaldo.toLocaleString("es-ES", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}€`,
+                transactions: p.transactions + 1,
+                lastUpdate: "Ahora",
+              }
+            : p
+        )
+      );
+
+      setIncomeAmount("");
+      setIncomeDate("");
+      setIncomeDescription("");
+      setIsIncomeDialogOpen(false);
+      setConfirmMessage("Ingreso registrado correctamente");
+      setIsConfirmDialogOpen(true);
+
+    } catch (err) {
+      console.error("Error inesperado:", err);
+      setIncomeErrors({ ...newErrors, amount: "Ocurrió un error inesperado." });
     }
-
-    const { total } = await getNumeroTransacciones(
-      selectedPortfolio.id,
-      selectedPortfolio.name
-    );
-    setSelectedPortfolio((prev) =>
-      prev ? { ...prev, transactions: total } : prev
-    );
-    setIngresoCreado((prev) => !prev);
-
-    const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
-    await actualizarSaldoCartera(
-      selectedPortfolio.name,
-      userId,
-      importe,
-      "ingreso"
-    );
-
-    setPortfolios((prev) =>
-      prev.map((p) =>
-        p.name === selectedPortfolio.name
-          ? {
-              ...p,
-              balance: `${nuevoSaldo.toLocaleString("es-ES", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}€`,
-              transactions: p.transactions + 1,
-              lastUpdate: "Ahora",
-            }
-          : p
-      )
-    );
-
-    setIncomeAmount("");
-    setIncomeDate("");
-    setIncomeDescription("");
-    setIsIncomeDialogOpen(false);
-    setConfirmMessage("Ingreso registrado correctamente");
-    setIsConfirmDialogOpen(true);
-
-  } catch (err) {
-    console.error("Error al añadir ingreso:", err);
-    alert("Error inesperado al añadir ingreso.");
-  }
-};
+  };
 
 const handleAddExpense = async () => {
+  const newErrors = { amount: "", category: "", date: "" };
+  setExpenseErrors(newErrors);
+
+  if (!selectedPortfolio) return;
+
+  const importe = parseFloat(parseFloat(expenseAmount).toFixed(2));
+  if (isNaN(importe) || importe <= 0) {
+    newErrors.amount = "Debe ser un número mayor o igual que 0 con hasta 2 decimales.";
+  }
+
+  if (!expenseCategory) {
+    newErrors.category = "Debes seleccionar una categoría.";
+  }
+
+  if (!expenseDate) {
+    newErrors.date = "La fecha es obligatoria.";
+  }
+
+  if (newErrors.amount || newErrors.category || newErrors.date) {
+    setExpenseErrors(newErrors);
+    return;
+  }
+
   try {
     if (!selectedPortfolio) return;
-
-    const importe = parseFloat(parseFloat(expenseAmount).toFixed(2));
-    if (isNaN(importe) || importe <= 0) {
-      alert("El importe debe ser mayor que 0.");
-      return;
-    }
-    if (!expenseCategory) {
-      alert("Debes seleccionar una categoría.");
-      return;
-    }
-    if (!expenseDate) {
-      alert("La fecha es obligatoria.");
-      return;
-    }
 
     const gasto = {
       cartera_nombre: selectedPortfolio.name,
@@ -350,11 +388,10 @@ const handleAddExpense = async () => {
       fijo: false,
     };
 
-    console.log("Gasto a enviar:", gasto);
-
     const { error } = await createGasto(gasto);
     if (error) {
-      alert("Error al registrar el gasto: " + error);
+      newErrors.amount = "Error al registrar el gasto. Inténtalo más tarde.";
+      setExpenseErrors(newErrors);
       return;
     }
 
@@ -400,8 +437,8 @@ const handleAddExpense = async () => {
     setIsConfirmDialogOpen(true);
 
   } catch (err) {
-    console.error("Error al añadir gasto:", err);
-    alert("Error inesperado al añadir gasto.");
+    console.error("Error inesperado:", err);
+    setExpenseErrors({ ...newErrors, amount: "Ocurrió un error inesperado." });
   }
 };
 
@@ -443,6 +480,118 @@ useEffect(() => {
 
   fetchTransactionsCount();
 }, [selectedPortfolio?.name, ingresoCreado, gastoCreado]);
+
+const handleSaveEditTransaction = async () => {
+
+  const newErrors = { amount: "", date: "", category: "" };
+  setEditTransactionErrors(newErrors);
+
+  if (!editingTransaction || !selectedPortfolio) return;
+
+  const importe = parseFloat(editTransactionAmount);
+  if (isNaN(importe) || importe <= 0) {
+    newErrors.amount = "Debe ser un número mayor o igual que 0 con hasta 2 decimales.";
+  }
+
+  if (!editTransactionDate) {
+    newErrors.date = "La fecha es obligatoria.";
+  }
+
+  if (editingTransaction.type === "expense" && !editTransactionCategory) {
+    newErrors.category = "Debes seleccionar una categoría.";
+  }
+
+  if (newErrors.amount || newErrors.date || newErrors.category) {
+    setEditTransactionErrors(newErrors);
+    return;
+  }
+
+  const fecha = editTransactionDate;
+  const descripcion = editTransactionDescription;
+
+  try {
+    if (editingTransaction.type === "income") {
+      const {error} = await editIngreso(
+        editingTransaction.id_movimiento,
+        userId,
+        selectedPortfolio.name,
+        importe,
+        descripcion,
+        fecha
+      );
+      if (error) {
+        newErrors.amount = "Error al actualizar el ingreso. Inténtalo más tarde.";
+        setEditTransactionErrors(newErrors);
+        return;
+      }
+    } else {
+      const {error} = await editGasto(
+        editingTransaction.id_movimiento,
+        userId,
+        selectedPortfolio.name,
+        importe,
+        descripcion,
+        fecha,
+        editTransactionCategory
+      );
+      if (error) {
+        newErrors.amount = "Error al actualizar el gasto. Inténtalo más tarde.";
+        setEditTransactionErrors(newErrors);
+        return;
+      }
+    }
+
+    // Refrescar cartera y movimientos
+    const updatedWallets = await fetchWallets();
+    const updated = updatedWallets.find((p) => p.name === selectedPortfolio.name);
+    if (updated) setSelectedPortfolio(updated);
+
+    const movimientosActualizados = await getUltimosMovimientosCartera(userId, selectedPortfolio.name);
+    setRecentTransactions(movimientosActualizados.data || []);
+
+    setIsEditTransactionDialogOpen(false);
+  } catch (err) {
+    console.error("Error al guardar edición:", err);
+    setEditTransactionErrors({
+      ...newErrors,
+      amount: "Ocurrió un error inesperado al guardar los cambios.",
+    });
+
+  }
+};
+
+const handleConfirmDeleteTransaction = async () => {
+  if (!deletingTransaction || !selectedPortfolio) return;
+
+  try {
+    if (deletingTransaction.type === "income") {
+      await deleteIngreso(
+        userId,
+        selectedPortfolio.name,
+        deletingTransaction.id_movimiento
+      );
+    } else {
+      await deleteGasto(
+        userId,
+        selectedPortfolio.name,
+        deletingTransaction.id_movimiento
+      );
+    }
+
+    // Recalcular y refrescar datos
+    const updatedWallets = await fetchWallets();
+    const updated = updatedWallets.find((p) => p.name === selectedPortfolio.name);
+    if (updated) setSelectedPortfolio(updated);
+    
+    const movimientosActualizados = await getUltimosMovimientosCartera(userId, selectedPortfolio.name);
+    console.log("Movimientos actualizados después de eliminar:", movimientosActualizados);
+    setRecentTransactions(movimientosActualizados.data || []);
+
+    setIsDeleteTransactionDialogOpen(false);
+  } catch (err) {
+    console.error("Error al eliminar transacción:", err);
+  }
+};
 
 if (selectedPortfolio) {
   return (
@@ -498,6 +647,9 @@ if (selectedPortfolio) {
                     value={incomeAmount}
                     onChange={(e) => setIncomeAmount(e.target.value)}
                   />
+                  {incomeErrors.amount && (
+                    <p className="text-red-500 text-sm">{incomeErrors.amount}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="income-date">Fecha</Label>
@@ -507,6 +659,9 @@ if (selectedPortfolio) {
                     value={incomeDate}
                     onChange={(e) => setIncomeDate(e.target.value)}
                   />
+                  {incomeErrors.date && (
+                    <p className="text-red-500 text-sm">{incomeErrors.date}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="income-description">Descripción (opcional)</Label>
@@ -548,6 +703,9 @@ if (selectedPortfolio) {
                     value={expenseAmount}
                     onChange={(e) => setExpenseAmount(e.target.value)}
                   />
+                  {expenseErrors.amount && (
+                    <p className="text-red-500 text-sm">{expenseErrors.amount}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="expense-category">Categoría</Label>
@@ -563,6 +721,9 @@ if (selectedPortfolio) {
                       <SelectItem value="Factura">Factura</SelectItem>
                     </SelectContent>
                   </Select>
+                  {expenseErrors.category && (
+                    <p className="text-red-500 text-sm">{expenseErrors.category}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="expense-date">Fecha</Label>
@@ -572,6 +733,9 @@ if (selectedPortfolio) {
                     value={expenseDate}
                     onChange={(e) => setExpenseDate(e.target.value)}
                   />
+                  {expenseErrors.date && (
+                    <p className="text-red-500 text-sm">{expenseErrors.date}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="expense-description">Descripción (opcional)</Label>
@@ -647,50 +811,209 @@ if (selectedPortfolio) {
         <CardContent>
           <div className="space-y-4">
            {recentTransactions.length === 0 ? (
-  <p className="text-gray-500 text-center py-4">
-    No hay movimientos registrados todavía.
-  </p>
-) : (
-  recentTransactions.map((transaction, index) => (
-    <div
-      key={index}
-      className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0"
-    >
-      <div className="flex-1">
-        <p className="font-semibold">
-          {transaction.descripcion || "Movimiento"}
-        </p>
-        <p className="text-sm text-gray-500">
-          {transaction.tipo === "ingreso" ? "Ingreso" : "Gasto"} ·{" "}
-          {new Date(transaction.fecha).toLocaleDateString("es-ES", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
-        </p>
-      </div>
-      <div className="text-right">
-        <p
-          className={`font-semibold ${
-            transaction.tipo === "ingreso"
-              ? "text-green-600"
-              : "text-red-600"
-          }`}
-        >
-          {transaction.tipo === "ingreso" ? "+" : "-"}
-          {Number(Math.abs(transaction.importe)).toLocaleString("es-ES", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}€
-        </p>
-      </div>
-    </div>
-  ))
-)}
+              <p className="text-gray-500 text-center py-4">
+                No hay movimientos registrados todavía.
+              </p>
+            ) : (
+              recentTransactions.map((transaction, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between gap-4 border-b last:border-0 pb-3 last:pb-0 group"
+                >
+                  <div className="flex-1">
+                    <p className="font-semibold">
+                      {transaction.descripcion || "Movimiento"}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {transaction.tipo === "ingreso" ? "Ingreso" : "Gasto"} 
+                      {transaction.tipo === "gasto" && transaction.categoria_nombre
+                        ? ` · ${transaction.categoria_nombre.charAt(0).toUpperCase() + transaction.categoria_nombre.slice(1)}`
+                        : ""}
+                      {" · "}
+                      {new Date(transaction.fecha).toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </p>
+                   
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p
+                        className={`font-bold ${
+                          transaction.tipo === "ingreso"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {transaction.tipo === "ingreso" ? "+" : "-"}
+                        {Number(Math.abs(transaction.importe)).toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}€
+                      </p>
+                    </div>
+                      {/* Botones de acción */}
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Editar movimiento" 
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setEditingTransaction({
+                              ...transaction,
+                              type: transaction.tipo === "ingreso" ? "income" : "expense",
+                            });
+                            setEditTransactionAmount(transaction.importe.toString());
+                            setEditTransactionDate(transaction.fecha.split("T")[0]);
+                            setEditTransactionDescription(transaction.descripcion || "");
+                            if (transaction.tipo === "gasto") {
+                              setEditTransactionCategory(transaction.categoria_nombre || "");
+                            }
+                            setIsEditTransactionDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                          
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Eliminar movimiento" 
+                          onClick={() => {
+                            setDeletingTransaction({
+                              ...transaction,
+                              type: transaction.tipo === "ingreso" ? "income" : "expense",
+                            });
+                            setIsDeleteTransactionDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                      </div>
+                  </div>
+              ))
+            )}
 
           </div>
         </CardContent>
       </Card>
+      {/* Edit Transaction Dialog */}
+      <Dialog open={isEditTransactionDialogOpen} onOpenChange={setIsEditTransactionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Editar {editingTransaction?.type === "income" ? "Ingreso" : "Gasto"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-amount">Importe</Label>
+              <Input
+                id="edit-amount"
+                type="number"
+                placeholder="0.00"
+                step="0.01"
+                value={editTransactionAmount}
+                onChange={(e) => {
+                  setEditTransactionAmount(e.target.value);
+                }}
+              />
+              {editTransactionErrors.amount && (
+                <p className="text-red-500 text-sm">{editTransactionErrors.amount}</p>
+              )}
+            </div>
+
+            {editingTransaction?.type === "expense" && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Categoría</Label>
+                <Select value={editTransactionCategory} onValueChange={setEditTransactionCategory}>
+                  <SelectTrigger id="edit-category">
+                    <SelectValue placeholder="Selecciona una categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ocio">Ocio</SelectItem>
+                    <SelectItem value="Hogar">Hogar</SelectItem>
+                    <SelectItem value="Transporte">Transporte</SelectItem>
+                    <SelectItem value="Comida">Comida</SelectItem>
+                    <SelectItem value="Factura">Factura</SelectItem>
+                  </SelectContent>
+                </Select>
+                {editTransactionErrors.category && (
+                  <p className="text-red-500 text-sm">{editTransactionErrors.category}</p>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Fecha</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={editTransactionDate}
+                onChange={(e) => setEditTransactionDate(e.target.value)}
+              />
+              {editTransactionErrors.date && (
+                <p className="text-red-500 text-sm">{editTransactionErrors.date}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Descripción (opcional)</Label>
+              <Textarea
+                id="edit-description"
+                placeholder="Ej: Salario mensual, Freelance..."
+                value={editTransactionDescription}
+                onChange={(e) => setEditTransactionDescription(e.target.value)}
+                maxLength={256}
+              />
+              <p className="text-xs text-gray-500">
+                {editTransactionDescription.length}/256 caracteres
+              </p>
+            </div>
+
+            <Button onClick={handleSaveEditTransaction} className="w-full">
+              Guardar Cambios
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Transaction Alert Dialog */}
+      <AlertDialog open={isDeleteTransactionDialogOpen} onOpenChange={setIsDeleteTransactionDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Deseas eliminar este movimiento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará permanentemente
+              {deletingTransaction?.type === "income" ? "el ingreso" : "el gasto"} de "
+              {deletingTransaction?.descripcion}" por un importe de $
+              {Math.abs(
+                parseFloat(
+                  (deletingTransaction?.importe?.toString() || "0")
+                    .replace(/[+\-$]/g, "")
+                )
+              ).toFixed(2)}.
+              El balance de la cartera se actualizará automáticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteTransaction}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar Movimiento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Popup de confirmación */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent className="text-center">
@@ -843,8 +1166,8 @@ if (selectedPortfolio) {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {portfolios.length === 0 ? (
-          <div className="flex items-center justify-center">
-            <p className="text-2xl md:text-3xl font-semibold text-gray-500 text-center">
+          <div className="flex items-center justify-start">
+            <p className="text-lg md:text-xl font-semibold text-gray-500 text-left">
               No hay carteras registradas aún.
             </p>
           </div>
@@ -878,39 +1201,39 @@ if (selectedPortfolio) {
                   <p>{portfolio.transactions}</p>
                 </div>
               </div>
-              <div className="pt-2 border-t">
-                <p className="text-xs text-gray-500 mb-2">{portfolio.lastUpdate}</p>
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={() => setSelectedPortfolio(portfolio)}
-                >
-                  <Eye className="h-4 w-4" />
-                  Ver Cartera
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 mt-2"
-                  onClick={() => {
-                    setEditingPortfolio(portfolio);
-                    setNewName(portfolio.name);
-                    setIsEditDialogOpen(true);
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Editar
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="w-full gap-2 mt-2"
-                  onClick={() => {
-                    setDeletingPortfolio(portfolio);
-                    setIsDeleteDialogOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Eliminar
-                </Button>
+              <div className="pt-2 border-t space-y-2">
+                <p className="text-xs text-gray-500">{portfolio.lastUpdate}</p>
+                <div className="flex gap-2">  
+                  <Button
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    title="Ver cartera" 
+                    onClick={() => setSelectedPortfolio(portfolio)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    Ver
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Editar cartera" 
+                    onClick={() => {
+                      setEditingPortfolio(portfolio);
+                      setNewName(portfolio.name);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    title="Eliminar cartera" 
+                    size="icon"
+                    className="group hover:bg-red-600 hover:text-white"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600 group-hover:text-white" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

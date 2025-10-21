@@ -44,6 +44,7 @@ export function Home({ onSelectPortfolio }: HomeProps) {
           console.error("Error obteniendo movimientos:", error);
           setMovements([]);
         } else {
+          console.log("Movimientos obtenidos:", data);
           setMovements(data || []);
         }
       } catch (err) {
@@ -63,18 +64,6 @@ export function Home({ onSelectPortfolio }: HomeProps) {
   change: "+0.0%",
   trend: "up" as const,
   };
-  const recentActivity = [
-    { id: 1, name: "Cartera Personal", amount: "+2,450€", date: "Hoy", type: "gain", description: "Ingreso - Salario" },
-    { id: 2, name: "Cartera Ahorros", amount: "+1,200€", date: "Hoy", type: "gain", description: "Transferencia" },
-    { id: 3, name: "Cartera Gastos", amount: "-385€", date: "Ayer", type: "loss", description: "Gasto - Supermercado" },
-    { id: 4, name: "Cartera Personal", amount: "-890€", date: "Ayer", type: "loss", description: "Gasto - Servicios" },
-    { id: 5, name: "Cartera Personal", amount: "+500€", date: "Hace 2 días", type: "gain", description: "Ingreso - Freelance" },
-    { id: 6, name: "Cartera Gastos", amount: "-120€", date: "Hace 2 días", type: "loss", description: "Gasto - Transporte" },
-    { id: 7, name: "Cartera Ahorros", amount: "+800€", date: "Hace 3 días", type: "gain", description: "Transferencia" },
-    { id: 8, name: "Cartera Gastos", amount: "-65.50€", date: "Hace 3 días", type: "loss", description: "Gasto - Restaurante" },
-    { id: 9, name: "Cartera Personal", amount: "-200€", date: "Hace 4 días", type: "loss", description: "Gasto - Ropa" },
-    { id: 10, name: "Cartera Vacaciones", amount: "+300€", date: "Hace 5 días", type: "gain", description: "Ahorro mensual" },
-  ];
 
   return (
     <div className="space-y-6">
@@ -171,17 +160,23 @@ export function Home({ onSelectPortfolio }: HomeProps) {
 
                 return (
                   <div
-                    key={`${movimiento.id ?? movimiento.cartera_origen}-${index}`}
+                    key={`${movimiento.id ?? movimiento.cartera_nombre}-${index}`}
                     className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0"
                   >
                     {/* Información principal */}
                     <div className="flex-1">
                       <p className="font-semibold">
                         {movimiento.descripcion || "Movimiento"}
+                        {movimiento.cartera_nombre && (
+                          <>
+                            {" · "}
+                            <span className="text-green-600">{movimiento.cartera_nombre}</span>
+                          </>
+                        )}
                       </p>
                       <p className="text-sm text-gray-500">
                         {tipo === "ingreso" ? "Ingreso" : "Gasto"}
-                        {movimiento.cartera_origen ? ` · ${movimiento.cartera_origen}` : ""}
+                        {tipo === "ingreso" ? "" : movimiento.categoria_nombre ? ` · ${movimiento.categoria_nombre.charAt(0).toUpperCase() + movimiento.categoria_nombre.slice(1)}` : ""}
                         {fechaFormateada ? ` · ${fechaFormateada}` : ""}
                       </p>
                     </div>
