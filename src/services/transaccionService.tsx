@@ -294,6 +294,41 @@ const service = {
     }
   },
 
+  /**
+   * Obtiene el número total de transacciones (ingresos + gastos)
+   * asociadas a una cartera concreta de un usuario.
+   */
+  async getNumeroTransacciones(
+    id_usuario: number,
+    cartera_nombre: string
+  ): Promise<{ total: number; error: string | null }> {
+    try {
+      // Contar ingresos
+      const { count: ingresosCount, error: ingresosError } = await createClient
+        .from("ingreso")
+        .select("*", { count: "exact", head: true })
+        .eq("id_usuario", id_usuario)
+        .eq("cartera_nombre", cartera_nombre);
+
+      if (ingresosError) throw ingresosError;
+
+      // Contar gastos
+      const { count: gastosCount, error: gastosError } = await createClient
+        .from("gasto")
+        .select("*", { count: "exact", head: true })
+        .eq("id_usuario", id_usuario)
+        .eq("cartera_nombre", cartera_nombre);
+
+      if (gastosError) throw gastosError;
+
+      const total = (ingresosCount ?? 0) + (gastosCount ?? 0);
+      return { total, error: null };
+    } catch (err: any) {
+      console.error("Error obteniendo número de transacciones:", err);
+      return { total: 0, error: err.message };
+    }
+  },
+
 };
 
 // Export named wrapper functions that delegate to the service object so external API is unchanged
@@ -309,6 +344,8 @@ export const getUltimosMovimientosUsuario = (id_usuario: number) => service.getU
 export const getUltimosMovimientosCartera = (id_usuario: number, cartera_nombre: string) => service.getUltimosMovimientosCartera(id_usuario, cartera_nombre);
 export const deleteTransaccionesCartera = (id_usuario: number, cartera_nombre: string) =>
   service.deleteTransaccionesCartera(id_usuario, cartera_nombre);
+export const getNumeroTransacciones = (id_usuario: number, cartera_nombre: string) =>
+  service.getNumeroTransacciones(id_usuario, cartera_nombre);
 
 export default service;
 

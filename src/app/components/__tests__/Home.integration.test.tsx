@@ -6,9 +6,14 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Home } from "@/app/components/Home";
 import * as carterasService from "@/services/carterasService";
+import * as transaccionService from "@/services/transaccionService";
 
 jest.mock("@/services/carterasService", () => ({
   getCarteras: jest.fn(),
+}));
+
+jest.mock("@/services/transaccionService", () => ({
+  getUltimosMovimientosUsuario: jest.fn(),
 }));
 
 describe("🏠 Home Component (integración ligera)", () => {

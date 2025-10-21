@@ -9,7 +9,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
 import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCartera, 
-  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera } from "@/services/transaccionService";
+  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera, getNumeroTransacciones } from "@/services/transaccionService";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DollarSign, ShoppingCart } from "lucide-react";
@@ -59,25 +59,34 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
   const [confirmMessage, setConfirmMessage] = useState("");
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
 
+  const [ingresoCreado, setIngresoCreado] = useState(false);
+  const [gastoCreado, setGastoCreado] = useState(false);
   
   async function fetchWallets() {
     try {
       setLoading(true);
       const data = await getCarteras(userId);
-      const formatted: PortfolioItem[] = data.map((c) => ({
-        id: c.id_usuario,
-        name: c.nombre,
-        balance: `${c.saldo.toLocaleString("es-ES", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}€`,
-        monthlyChange: "0.00€",
-        trend: "up",
-        transactions: 0,
-        lastUpdate: "Ahora",
-      }));
+
+      const formatted: PortfolioItem[] = await Promise.all(
+        data.map(async (c) => {
+          const { total } = await getNumeroTransacciones(c.id_usuario, c.nombre);
+          return {
+            id: c.id_usuario,
+            name: c.nombre,
+            balance: `${c.saldo.toLocaleString("es-ES", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}€`,
+            monthlyChange: "0.00€",
+            trend: "up" as const,
+            transactions: total ?? 0, // ✅ valor real de Supabase
+            lastUpdate: "Ahora",
+          };
+        })
+      );
+
       setPortfolios(formatted);
-      return formatted; 
+      return formatted;
     } catch (err) {
       console.error("Error al obtener carteras:", err);
       return [];
@@ -100,6 +109,7 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
       setSelectedPortfolio(null);
     }
   }, [selectedId]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState("");
   const [newPortfolioBalance, setNewPortfolioBalance] = useState("");
@@ -266,6 +276,15 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
       return;
     }
 
+    const { total } = await getNumeroTransacciones(
+      selectedPortfolio.id,
+      selectedPortfolio.name
+    );
+    setSelectedPortfolio((prev) =>
+      prev ? { ...prev, transactions: total } : prev
+    );
+    setIngresoCreado((prev) => !prev);
+
     const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
     await actualizarSaldoCartera(
       selectedPortfolio.name,
@@ -294,7 +313,7 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     setIncomeDate("");
     setIncomeDescription("");
     setIsIncomeDialogOpen(false);
-    setConfirmMessage("Ingreso registrado correctamente ✅");
+    setConfirmMessage("Ingreso registrado correctamente");
     setIsConfirmDialogOpen(true);
 
   } catch (err) {
@@ -339,6 +358,15 @@ const handleAddExpense = async () => {
       return;
     }
 
+    const { total } = await getNumeroTransacciones(
+      selectedPortfolio.id,
+      selectedPortfolio.name
+    );
+    setSelectedPortfolio((prev) =>
+      prev ? { ...prev, transactions: total } : prev
+    );
+    setGastoCreado((prev) => !prev);
+
     const nuevoSaldo = await calcularSaldoCartera(selectedPortfolio.name, userId);
     await actualizarSaldoCartera(
       selectedPortfolio.name,
@@ -368,7 +396,7 @@ const handleAddExpense = async () => {
     setExpenseDate("");
     setExpenseDescription("");
     setIsExpenseDialogOpen(false);
-    setConfirmMessage("Gasto registrado correctamente ✅");
+    setConfirmMessage("Gasto registrado correctamente");
     setIsConfirmDialogOpen(true);
 
   } catch (err) {
@@ -395,6 +423,26 @@ useEffect(() => {
   fetchMovements();
 }, [selectedPortfolio, userId]);
 
+useEffect(() => {
+  async function fetchTransactionsCount() {
+    if (!selectedPortfolio) return;
+
+    const { total, error } = await getNumeroTransacciones(
+      selectedPortfolio.id,   // id_usuario
+      selectedPortfolio.name  // nombre de la cartera
+    );
+
+    if (!error) {
+      setSelectedPortfolio((prev) =>
+        prev ? { ...prev, transactions: total } : prev
+      );
+    } else {
+      console.error("Error al obtener número de transacciones:", error);
+    }
+  }
+
+  fetchTransactionsCount();
+}, [selectedPortfolio?.name, ingresoCreado, gastoCreado]);
 
 if (selectedPortfolio) {
   return (
@@ -671,7 +719,6 @@ if (selectedPortfolio) {
     </div>
   );
 }
-
 
   return (
     <div className="space-y-6">
