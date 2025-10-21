@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getCarteras } from "@/services/carterasService";
+import { getUltimosMovimientosUsuario } from "@/services/transaccionService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
@@ -16,9 +17,11 @@ export function Home({ onSelectPortfolio }: HomeProps) {
 
   const [wallets, setWallets] = useState<{ nombre: string; saldo: number; id_usuario: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(true);
   const [userId, setUserId] = useState(1)
 
-    useEffect(() => {
+  useEffect(() => {
     async function fetchWallets() {
       try {
         const data = await getCarteras(userId);
@@ -32,15 +35,34 @@ export function Home({ onSelectPortfolio }: HomeProps) {
     fetchWallets();
   }, [userId]);
 
-  const totalBalanceValue = wallets.reduce((acc, w) => acc + Number(w.saldo), 0);
+  useEffect(() => {
+    async function fetchMovements() {
+      try {
+        const { data, error } = await getUltimosMovimientosUsuario(userId);
 
+        if (error) {
+          console.error("Error obteniendo movimientos:", error);
+          setMovements([]);
+        } else {
+          setMovements(data || []);
+        }
+      } catch (err) {
+        console.error("Error inesperado al cargar movimientos:", err);
+      } finally {
+        setLoadingMovements(false);
+      }
+    }
+
+    fetchMovements();
+  }, [userId]);
+
+  const totalBalanceValue = wallets.reduce((acc, w) => acc + Number(w.saldo), 0);
   const totalBalance = {
   title: "Balance Total",
   value: `${totalBalanceValue.toLocaleString("es-ES", { minimumFractionDigits: 2 })}€`,
   change: "+0.0%",
   trend: "up" as const,
   };
-
   const recentActivity = [
     { id: 1, name: "Cartera Personal", amount: "+2,450€", date: "Hoy", type: "gain", description: "Ingreso - Salario" },
     { id: 2, name: "Cartera Ahorros", amount: "+1,200€", date: "Hoy", type: "gain", description: "Transferencia" },
@@ -119,25 +141,71 @@ export function Home({ onSelectPortfolio }: HomeProps) {
     )}
   </div>
 </div>
-
-      {/* Recent Activity - Last 10 Movements */}
+      {/* Últimos 10 Movimientos */}
       <Card>
         <CardHeader>
           <CardTitle>Últimos 10 Movimientos</CardTitle>
         </CardHeader>
+
         <CardContent>
           <div className="space-y-4">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0">
-                <div>
-                  <p>{activity.name}</p>
-                  <p className="text-sm text-gray-500">{activity.description} · {activity.date}</p>
-                </div>
-                <div className={activity.type === "gain" ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                  {activity.amount}
-                </div>
-              </div>
-            ))}
+            {loadingMovements ? (
+              <p className="text-gray-500 text-center py-4">
+                Cargando movimientos...
+              </p>
+            ) : movements.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">
+                No hay movimientos registrados todavía.
+              </p>
+            ) : (
+              movements.slice(0, 10).map((movimiento, index) => {
+                const tipo =
+                  movimiento.importe > 0 ? "ingreso" : "gasto";
+                const importeAbsoluto = Math.abs(movimiento.importe);
+                const fecha = new Date(movimiento.fecha);
+                const fechaFormateada = fecha.toLocaleDateString("es-ES", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                });
+
+                return (
+                  <div
+                    key={`${movimiento.id ?? movimiento.cartera_origen}-${index}`}
+                    className="flex items-center justify-between border-b last:border-0 pb-3 last:pb-0"
+                  >
+                    {/* Información principal */}
+                    <div className="flex-1">
+                      <p className="font-semibold">
+                        {movimiento.descripcion || "Movimiento"}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {tipo === "ingreso" ? "Ingreso" : "Gasto"}
+                        {movimiento.cartera_origen ? ` · ${movimiento.cartera_origen}` : ""}
+                        {fechaFormateada ? ` · ${fechaFormateada}` : ""}
+                      </p>
+                    </div>
+
+                    {/* Importe */}
+                    <div className="text-right">
+                      <p
+                        className={`font-semibold ${
+                          tipo === "ingreso"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {tipo === "ingreso" ? "+" : "-"}
+                        {importeAbsoluto.toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}€
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </CardContent>
       </Card>

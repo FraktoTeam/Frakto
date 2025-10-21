@@ -657,11 +657,11 @@ if (selectedPortfolio) {
             onClick={async () => {
               setIsConfirmDialogOpen(false);
 
-              const updatedWallets = await fetchWallets(); // 🆕 trae y devuelve los datos
+              const updatedWallets = await fetchWallets(); 
               const updated = updatedWallets.find(
                 (p) => p.name === selectedPortfolio?.name
               );
-              if (updated) setSelectedPortfolio(updated); // 🔁 actualiza cartera visible
+              if (updated) setSelectedPortfolio(updated); 
             }}
           >
             Aceptar
