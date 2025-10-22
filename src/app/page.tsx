@@ -26,7 +26,7 @@ export default function App() {
 
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
-    { id: "portfolio", label: "Cartera", icon: Briefcase },
+    { id: "portfolio", label: "Carteras", icon: Briefcase },
     { id: "analytics", label: "Análisis", icon: BarChart3 },
     { id: "settings", label: "Configuración", icon: Settings },
   ];
