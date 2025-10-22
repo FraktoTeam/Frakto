@@ -991,8 +991,8 @@ if (selectedPortfolio) {
             <AlertDialogTitle>¿Deseas eliminar este movimiento?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción eliminará permanentemente
-              {deletingTransaction?.type === "income" ? "el ingreso" : "el gasto"} de "
-              {deletingTransaction?.descripcion}" por un importe de $
+              {deletingTransaction?.type === "income" ? "el ingreso" : "el gasto"} de &quot;
+              {deletingTransaction?.descripcion}&quot; por un importe de $
               {Math.abs(
                 parseFloat(
                   (deletingTransaction?.importe?.toString() || "0")
