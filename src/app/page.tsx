@@ -1,103 +1,171 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState, useEffect } from "react";
+import { Home } from "./components/Home";
+import { Portfolio } from "./components/Portfolio";
+import { Home as HomeIcon, Briefcase, BarChart3, Settings } from "lucide-react";
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+export default function App() {
+  const [activeView, setActiveView] = useState("home");
+
+  const [previousView, setPreviousView] = useState<string>("home");
+
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (activeView === "portfolio" && previousView !== "portfolio") {
+      setSelectedPortfolioId(null);
+    }
+  }, [activeView, previousView]);
+
+  const handleSelectPortfolio = (portfolioId: number): void => {
+    setSelectedPortfolioId(portfolioId);
+    setPreviousView(activeView);
+    setActiveView("portfolio");
+  };
+
+  const menuItems = [
+    { id: "home", label: "Home", icon: HomeIcon },
+    { id: "portfolio", label: "Cartera", icon: Briefcase },
+    { id: "analytics", label: "Análisis", icon: BarChart3 },
+    { id: "settings", label: "Configuración", icon: Settings },
+  ];
+
+  const renderView = () => {
+    switch (activeView) {
+      case "home":
+        return <Home onSelectPortfolio={handleSelectPortfolio}
+        userId={1} />;
+      case "portfolio":
+        return (
+          <Portfolio
+            userId={1}
+            selectedId={selectedPortfolioId}
+            previousView={previousView}       
+            onNavigateBack={setActiveView}    
+          />
+        );
+      case "analytics":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2>Análisis</h2>
+              <p className="text-gray-500">Análisis detallado de tus ingresos y gastos</p>
+            </div>
+            <div className="bg-gray-100 rounded-lg p-12 text-center">
+              <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">Próximamente disponible</p>
+            </div>
+          </div>
+        );
+      case "settings":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2>Configuración</h2>
+              <p className="text-gray-500">Ajustes de tu cuenta</p>
+            </div>
+            <div className="bg-gray-100 rounded-lg p-12 text-center">
+              <Settings className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">Próximamente disponible</p>
+            </div>
+          </div>
+        );
+      default:
+        return <Home onSelectPortfolio={handleSelectPortfolio} 
+        userId={1}/>;
+          }
+        };
+
+        return (
+          <div className="flex h-screen bg-gray-50">
+            {/* Sidebar */}
+            <aside className="w-20 hover:w-64 bg-white border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col group">
+        {/* Header - Siempre visible */}
+        <div className="p-6 border-b border-gray-200 min-h-[88px] flex flex-col justify-center items-center group-hover:items-start transition-all duration-300">
+          {/* Contenedor del logo */}
+          <div className="relative flex items-center justify-center h-10 w-10 group-hover:h-12 group-hover:w-auto transition-all duration-300">
+
+            {/* Logo pequeño / recortado */}
+            <img
+              src="/logoPequeno.png"
+              alt="Logo pequeño"
+              className="block group-hover:hidden h-full w-full object-contain"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+
+            {/* Logo grande / completo */}
+            <img
+              src="/logo.png"
+              alt="Logo completo"
+              className="hidden group-hover:block h-24 w-auto object-contain"
+            />
+          </div>
+
+          {/* Texto visible solo al expandir */}
+          <p className="text-sm font-medium text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap mt-0">
+            Gestión Financiera
+          </p>
         </div>
+
+
+        {/* Navigation - Expandible con hover */}
+        <nav className="flex-1 p-4">
+          <ul className="space-y-2">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+          <li key={item.id}>
+            <button
+              onClick={() => setActiveView(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                activeView === item.id
+            ? "bg-green-50 text-green-600"
+            : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">{item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+      {/* User Info - Adaptable */}
+      <div className="p-4 border-t border-gray-200">
+        <div className="bg-green-50 rounded-lg p-4 min-h-[72px] flex items-center justify-center group-hover:justify-start transition-all duration-300">
+          {/* Icono visible solo cuando está cerrado */}
+          <div className="opacity-100 group-hover:opacity-0 transition-opacity duration-300">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </div>
+
+          {/* Texto visible solo cuando está expandido */}
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col ml-0 group-hover:ml-3 whitespace-nowrap overflow-hidden">
+            <p className="text-sm font-medium">Usuario</p>
+            <p className="text-xs text-gray-500">admin@frakto.com</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        {/* Content */}
+        <div className="p-6">{renderView()}</div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
