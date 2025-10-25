@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
 import { Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
+import { WalletMinimal, Home, BarChart2, Settings, CreditCard } from "lucide-react";
+
 
 interface HomeProps {
   onSelectPortfolio: (portfolioId: number) => void;

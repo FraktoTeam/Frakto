@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { Home } from "./components/Home";
 import { Portfolio } from "./components/Portfolio";
-import { Home as HomeIcon, Briefcase, BarChart3, Settings } from "lucide-react";
+import { Home as HomeIcon, Briefcase, BarChart3, Settings, CreditCard } from "lucide-react";
+import { FixedExpenses } from "./components/FixedExpenses";
+
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
@@ -28,6 +30,7 @@ export default function App() {
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "portfolio", label: "Carteras", icon: Briefcase },
     { id: "analytics", label: "Análisis", icon: BarChart3 },
+    { id: "fixexpenses", label: "Gastos Fijos", icon: CreditCard },
     { id: "settings", label: "Configuración", icon: Settings },
   ];
 
@@ -58,6 +61,9 @@ export default function App() {
             </div>
           </div>
         );
+       case "fixexpenses":
+          return <FixedExpenses />;
+
       case "settings":
         return (
           <div className="space-y-6">
