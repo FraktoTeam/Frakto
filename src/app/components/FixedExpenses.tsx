@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
+import { createGastoFijo, deleteGastoFijo, getGastosFijos, toggleGastoFijoActivo, updateGastoFijo } from "@/services/gastoFijoService";
+import { getCarteras } from "@/services/carterasService";
+import { ScrollArea } from "./ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { Plus, Edit, Trash2, Repeat, Calendar, Wallet, Play, Pause } from "lucide-react";
 
@@ -25,55 +28,68 @@ interface FixedExpense {
 }
 
 export function FixedExpenses() {
-  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([
-    {
-      id: 1,
-      portfolioId: 1,
-      portfolioName: "Cartera Personal",
-      amount: "1200.00",
-      category: "Hogar",
-      frequency: 30,
-      startDate: "2025-10-01",
-      description: "Alquiler mensual",
-      status: "activo",
-      lastGenerated: "2025-10-01",
-    },
-    {
-      id: 2,
-      portfolioId: 1,
-      portfolioName: "Cartera Personal",
-      amount: "45.99",
-      category: "Factura",
-      frequency: 30,
-      startDate: "2025-10-05",
-      description: "Suscripción Netflix",
-      status: "activo",
-      lastGenerated: "2025-10-05",
-    },
-  ]);
+  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
 
-  const [portfolios] = useState([
-    { id: 1, name: "Cartera Personal" },
-    { id: 2, name: "Cartera Ahorros" },
-    { id: 3, name: "Cartera Gastos" },
-    { id: 4, name: "Cartera Emergencias" },
-  ]);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
+  const [portfolios, setPortfolios] = useState<any[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [frequency, setFrequency] = useState("");
   const [startDate, setStartDate] = useState("");
   const [description, setDescription] = useState("");
-
+  
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<FixedExpense | null>(null);
 
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+
   const [formErrors, setFormErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchPortfolios = async () => {
+      try {
+        const data = await getCarteras();
+        setPortfolios(data || []);
+      } catch (error) {
+        console.error("Error obteniendo carteras:", error);
+      }
+    };
+
+    fetchPortfolios();
+  }, []);
+
+  useEffect(() => {
+    const fetchFixedExpenses = async () => {
+      try {
+        const data = await getGastosFijos(1); // ⚠️ Pon aquí el id del usuario real
+        // Adaptamos el formato del backend al frontend
+        const mappedExpenses: FixedExpense[] = data.map((gasto) => ({
+          id: gasto.id_gasto!,
+          portfolioId: gasto.id_usuario, // o id_cartera si lo tienes
+          portfolioName: gasto.cartera_nombre,
+          amount: gasto.importe.toFixed(2),
+          category: gasto.categoria_nombre,
+          frequency: gasto.frecuencia,
+          startDate: gasto.fecha_inicio,
+          description: gasto.descripcion || "Gasto fijo",
+          status: gasto.activo ? "activo" : "pausado",
+          lastGenerated: gasto.lastGenerated // Aquí podrías mapear la fecha del último cargo si la tienes
+        }));
+        setFixedExpenses(mappedExpenses);
+      } catch (error) {
+        console.error("Error obteniendo gastos fijos:", error);
+      }
+    };
+
+    fetchFixedExpenses();
+  }, []);
+
 
   const validateForm = (portfolioId: string, amt: string, cat: string, freq: string, date: string, desc: string) => {
     const errors: string[] = [];
@@ -134,33 +150,156 @@ export function FixedExpenses() {
     return date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
   };
 
-  const handleCreateExpense = () => {
-    const errors = validateForm(selectedPortfolioId, amount, category, frequency, startDate, description);
-    if (errors.length > 0) return setFormErrors(errors);
+  const handleCreateExpense = async () => {
+    const categoryLower = category.toLowerCase();
+    const errors = validateForm(selectedPortfolioId, amount, categoryLower, frequency, startDate, description);
+    console.log("Creando gasto con atributos: ", {
+      cartera_nombre: selectedPortfolioId,
+      id_usuario: 1,
+      categoria_nombre: categoryLower,
+      importe: parseFloat(amount),
+      fecha_inicio: startDate,
+      frecuencia: parseInt(frequency),
+      descripcion: description || "Gasto fijo",
+    });
+    if (errors.length > 0) {
+      return setFormErrors(errors);
+    }
 
-    const portfolio = portfolios.find(p => p.id === parseInt(selectedPortfolioId));
+    const portfolio = portfolios.find(p => p.nombre === selectedPortfolioId);
     if (!portfolio) return;
+    try {
+      const { data, error } = await createGastoFijo({
+        cartera_nombre: portfolio.nombre,
+        id_usuario: 1, 
+        categoria_nombre: categoryLower,
+        importe: parseFloat(amount),
+        fecha_inicio: startDate,
+        frecuencia: parseInt(frequency),
+        activo: true,
+        descripcion: description || "Gasto fijo",
+      });
 
-    const newExpense: FixedExpense = {
-      id: Date.now(),
-      portfolioId: parseInt(selectedPortfolioId),
-      portfolioName: portfolio.name,
-      amount: parseFloat(amount).toFixed(2),
-      category,
-      frequency: parseInt(frequency),
-      startDate,
-      description: description || "Gasto fijo",
-      status: "activo",
-    };
+      if (error || !data) {
+        setFormErrors([error || "Error desconocido al crear gasto fijo"]);
+        return;
+      }
 
-    setFixedExpenses([newExpense, ...fixedExpenses]);
-    setIsCreateDialogOpen(false);
-    resetForm();
+      // 🔄 Adaptamos el formato del backend al formato del frontend
+      const newExpense: FixedExpense = {
+        id: data.id_gasto!, // campo de la BD
+        portfolioId: data.id_usuario, // o el id_cartera si lo tienes
+        portfolioName: data.cartera_nombre,
+        amount: data.importe.toFixed(2),
+        category: data.categoria_nombre,
+        frequency: data.frecuencia,
+        startDate: data.fecha_inicio,
+        description: data.descripcion || "Gasto fijo",
+        status: "activo",
+        lastGenerated: data.lastGenerated, // Aquí podrías mapear la fecha del último cargo si la tienes
+      };
+
+      setFixedExpenses([newExpense, ...fixedExpenses]);
+      setIsCreateDialogOpen(false);
+      resetForm();
+      
+      setConfirmMessage("Gasto fijo creado correctamente");
+      setIsConfirmDialogOpen(true);
+    } catch (err) {
+      console.error("Error al crear gasto fijo:", err);
+      setFormErrors(["Hubo un error al crear el gasto fijo"]);
+    }
   };
 
-  const handleToggleStatus = (expense: FixedExpense) => {
+  const handleEditExpense = (expense: FixedExpense) => {
+    setEditingExpense(expense);
+    setSelectedPortfolioId(expense.portfolioName.toString());
+    setAmount(expense.amount);
+    setCategory(expense.category.toLowerCase());
+    setFrequency(expense.frequency.toString());
+    setStartDate(expense.startDate);
+    setDescription(expense.description);
+    setFormErrors([]);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingExpense) return;
+
+    const categoryLower = category.toLowerCase();
+    const errors = validateForm(selectedPortfolioId, amount, categoryLower, frequency, startDate, description);
+    console.log("Creando gasto con atributos: ", {
+      cartera_nombre: selectedPortfolioId,
+      id_usuario: 1,
+      categoria_nombre: categoryLower,
+      importe: parseFloat(amount),
+      fecha_inicio: startDate,
+      frecuencia: parseInt(frequency),
+      descripcion: description || "Gasto fijo",
+    });
+    if (errors.length > 0) return setFormErrors(errors);
+
+    const portfolio = portfolios.find(p => p.nombre === selectedPortfolioId);
+    if (!portfolio) return;
+
+    try {
+      const { success, error } = await updateGastoFijo(editingExpense.id, {
+        cartera_nombre: portfolio.nombre,
+        id_usuario: portfolio.id_usuario,
+        categoria_nombre: categoryLower,
+        importe: parseFloat(amount),
+        fecha_inicio: startDate,
+        frecuencia: parseInt(frequency),
+        descripcion: description || "Gasto fijo",
+      });
+
+      if (!success || error) {
+        setFormErrors([error || "Error desconocido al actualizar el gasto fijo"]);
+        return;
+      }
+
+      // Actualizamos el estado local
+      const updatedExpense: FixedExpense = {
+        ...editingExpense,
+        portfolioId: portfolio.id_usuario,
+        portfolioName: portfolio.nombre,
+        amount: parseFloat(amount).toFixed(2),
+        category: categoryLower,
+        frequency: parseInt(frequency),
+        startDate,
+        description: description || "Gasto fijo",
+      };
+
+      setFixedExpenses(
+        fixedExpenses.map((e) => (e.id === editingExpense.id ? updatedExpense : e))
+      );
+
+      // Cerramos el dialog
+      setIsEditDialogOpen(false);
+      setEditingExpense(null);
+      resetForm();
+    } catch (err) {
+      console.error("Error al actualizar gasto fijo:", err);
+      setFormErrors(["Hubo un error al actualizar el gasto fijo"]);
+    }
+  };
+
+
+  const handleToggleStatus = async (expense: FixedExpense) => {
     const newStatus = expense.status === "activo" ? "pausado" : "activo";
-    setFixedExpenses(fixedExpenses.map(e => e.id === expense.id ? { ...e, status: newStatus } : e));
+    const newActivo = newStatus === "activo";
+
+    try {
+      await toggleGastoFijoActivo(expense.id, newActivo);
+
+      setFixedExpenses((prev) =>
+        prev.map((e) =>
+          e.id === expense.id ? { ...e, status: newStatus } : e
+        )
+      );
+    } catch (error) {
+      console.error("Error actualizando estado en Supabase:", error);
+    }
   };
 
   const handleDeleteExpense = (expense: FixedExpense) => {
@@ -168,13 +307,29 @@ export function FixedExpenses() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (deletingExpense) {
+  const handleConfirmDelete = async () => {
+    if (!deletingExpense) return;
+
+    try {
+      // Llamamos al servicio para eliminar de la base de datos
+      const { success, error } = await deleteGastoFijo(deletingExpense.id);
+
+      if (!success) {
+        console.error("Error eliminando gasto fijo:", error);
+        // Opcional: mostrar error al usuario
+        return;
+      }
+
+      // Eliminamos del estado local para actualizar la UI
       setFixedExpenses(fixedExpenses.filter(e => e.id !== deletingExpense.id));
       setIsDeleteDialogOpen(false);
       setDeletingExpense(null);
+
+    } catch (err) {
+      console.error("Error eliminando gasto fijo:", err);
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -197,69 +352,71 @@ export function FixedExpenses() {
             <DialogHeader>
               <DialogTitle>Nuevo Gasto Fijo</DialogTitle>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto space-y-4 pt-4 pr-4">
-              {formErrors.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-800 font-semibold mb-1">Errores de validación:</p>
-                  <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
-                    {formErrors.map((error, index) => <li key={index}>{error}</li>)}
-                  </ul>
+              <ScrollArea className="max-h-[70vh]">
+              <div className="space-y-4 pt-4 pr-4">
+                {formErrors.length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-800 font-semibold mb-1">Errores de validación:</p>
+                    <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                      {formErrors.map((error, index) => <li key={index}>{error}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {/* Inputs básicos */}
+                <div className="space-y-2">
+                  <Label>Cartera *</Label>
+                  <Select value={selectedPortfolioId} onValueChange={setSelectedPortfolioId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una cartera" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {portfolios.map(p => (
+                        <SelectItem key={p.nombre} value={p.nombre.toString()}>
+                          {p.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-              {/* Inputs básicos */}
-              <div className="space-y-2">
-                <Label>Cartera *</Label>
-                <Select value={selectedPortfolioId} onValueChange={setSelectedPortfolioId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una cartera" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {portfolios.map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label>Importe *</Label>
+                  <Input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Categoría *</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ocio">Ocio</SelectItem>
+                      <SelectItem value="hogar">Hogar</SelectItem>
+                      <SelectItem value="transporte">Transporte</SelectItem>
+                      <SelectItem value="comida">Comida</SelectItem>
+                      <SelectItem value="factura">Factura</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Frecuencia (días) *</Label>
+                  <Input type="number" min="1" step="1" placeholder="Número entero mayor que 0" value={frequency} onChange={e => setFrequency(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fecha de inicio *</Label>
+                  <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descripción (opcional)</Label>
+                  <Textarea
+                    placeholder="Ej: Alquiler mensual..."
+                    maxLength={256}
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleCreateExpense} className="w-full">Crear Gasto Fijo</Button>
               </div>
-              <div className="space-y-2">
-                <Label>Importe *</Label>
-                <Input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Categoría *</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Ocio">Ocio</SelectItem>
-                    <SelectItem value="Hogar">Hogar</SelectItem>
-                    <SelectItem value="Transporte">Transporte</SelectItem>
-                    <SelectItem value="Comida">Comida</SelectItem>
-                    <SelectItem value="Factura">Factura</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Frecuencia (días) *</Label>
-                <Input type="number" min="1" step="1" value={frequency} onChange={e => setFrequency(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha de inicio *</Label>
-                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción (opcional)</Label>
-                <Textarea
-                  placeholder="Ej: Alquiler mensual..."
-                  maxLength={256}
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleCreateExpense} className="w-full">Crear Gasto Fijo</Button>
-            </div>
+              </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>
@@ -311,12 +468,24 @@ export function FixedExpenses() {
                       <p className="text-gray-500">Inicio</p>
                       <p className="mt-1">{formatDate(expense.startDate)}</p>
                     </div>
+                    <div className="text-xs text-gray-500">
+                      {expense.lastGenerated
+                        ? `Último cargo generado: ${formatDate(expense.lastGenerated)}`
+                        : "Último cargo generado: --/--/----"}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
                   <Button variant="outline" size="icon" onClick={() => handleToggleStatus(expense)}>
                     {expense.status === "activo" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
+                  <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleEditExpense(expense)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   <Button variant="outline" size="icon" onClick={() => handleDeleteExpense(expense)}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
@@ -326,7 +495,119 @@ export function FixedExpenses() {
           ))}
         </div>
       )}
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (!open) {
+          setEditingExpense(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Gasto Fijo</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh]">
+            <div className="space-y-4 pt-4 pr-4">
+              {formErrors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800 font-semibold mb-1">Errores de validación:</p>
+                  <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                    {formErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-portfolio">Cartera *</Label>
+                <Select value={selectedPortfolioId} onValueChange={setSelectedPortfolioId}>
+                  <SelectTrigger id="edit-portfolio">
+                    <SelectValue placeholder="Selecciona una cartera" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {portfolios.map((portfolio) => (
+                      <SelectItem key={portfolio.nombre} value={portfolio.nombre.toString()}>
+                        {portfolio.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="edit-amount">Importe *</Label>
+                <Input
+                  id="edit-amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Categoría *</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger id="edit-category">
+                    <SelectValue placeholder="Selecciona una categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ocio">Ocio</SelectItem>
+                    <SelectItem value="hogar">Hogar</SelectItem>
+                    <SelectItem value="transporte">Transporte</SelectItem>
+                    <SelectItem value="comida">Comida</SelectItem>
+                    <SelectItem value="factura">Factura</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-frequency">Frecuencia (días) *</Label>
+                <Input
+                  id="edit-frequency"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="30"
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value)}
+                />
+                <p className="text-xs text-gray-500">Cada cuántos días se repetirá el gasto</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-date">Fecha de inicio *</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Descripción (opcional)</Label>
+                <Textarea
+                  id="edit-description"
+                  placeholder="Ej: Alquiler mensual, Suscripción..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={256}
+                />
+                <p className="text-xs text-gray-500">{description.length}/256 caracteres</p>
+              </div>
+
+              <Button onClick={handleSaveEdit} className="w-full">
+                Guardar Cambios
+              </Button>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+      
       {/* Delete Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -344,6 +625,23 @@ export function FixedExpenses() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Popup de confirmación */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent className="text-center">
+          <DialogHeader>
+            <DialogTitle className="text-green-600">{confirmMessage}</DialogTitle>
+            <DialogDescription>
+              Los datos se han guardado correctamente.
+            </DialogDescription>
+          </DialogHeader>
+          <Button
+            className="mt-4 w-full"
+            onClick={() => setIsConfirmDialogOpen(false)}
+          >
+            Aceptar
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

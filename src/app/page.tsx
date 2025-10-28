@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Home } from "./components/Home";
 import { Portfolio } from "./components/Portfolio";
-import { Home as HomeIcon, Briefcase, BarChart3, Settings, CreditCard } from "lucide-react";
+import { Home as HomeIcon, Briefcase, BarChart3, Settings, CreditCard, Repeat } from "lucide-react";
 import { FixedExpenses } from "./components/FixedExpenses";
 
 
@@ -29,8 +29,8 @@ export default function App() {
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "portfolio", label: "Carteras", icon: Briefcase },
+    { id: "fixexpenses", label: "Gastos Fijos", icon: Repeat },
     { id: "analytics", label: "Análisis", icon: BarChart3 },
-    { id: "fixexpenses", label: "Gastos Fijos", icon: CreditCard },
     { id: "settings", label: "Configuración", icon: Settings },
   ];
 
