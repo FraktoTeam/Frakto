@@ -1,0 +1,57 @@
+name: Run Tests & Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # 🧪 Job 1: Ejecutar los tests
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # 1️⃣ Clonar el repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Configurar Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 3️⃣ Instalar dependencias
+      - name: Install dependencies
+        run: npm ci
+
+      # 4️⃣ Ejecutar los tests
+      - name: Run tests
+        run: npm test
+
+  # 🚀 Job 2: Desplegar en Vercel (solo si pasan los tests)
+  deploy:
+    needs: test  # 🔒 Espera a que el job "test" termine correctamente
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          prod: true
