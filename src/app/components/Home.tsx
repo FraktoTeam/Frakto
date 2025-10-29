@@ -8,7 +8,7 @@ import { Button } from "./ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
 import { Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
 import { WalletMinimal, Home, BarChart2, Settings, CreditCard } from "lucide-react";
-
+import { getFirebaseApp } from "../../utils/firebaseClient";
 
 interface HomeProps {
   onSelectPortfolio: (portfolioId: number) => void;
@@ -22,7 +22,15 @@ export function Home({ onSelectPortfolio }: HomeProps) {
   const [movements, setMovements] = useState<any[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(true);
   const [userId, setUserId] = useState(1)
-
+  useEffect(() => {
+    try {
+      const app = getFirebaseApp();
+      console.log("✅ Firebase inicializado:", app.name);
+    } catch (e) {
+      console.error("⛔ No se pudo inicializar Firebase:", e);
+    }
+  }, []);
+  
   useEffect(() => {
     async function fetchWallets() {
       try {
