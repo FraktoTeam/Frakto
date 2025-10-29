@@ -1,31 +1,54 @@
 import { createClient } from "../utils/client";
 
 /**
- * Estructura de un ingreso
+ * Estructura que describe un ingreso financiero.
+ *
+ * Usada por las funciones de lectura/creación de ingresos.
+ *
+ * @property cartera_nombre - Nombre de la cartera a la que pertenece el ingreso
+ * @property id_usuario - Identificador del usuario propietario
+ * @property importe - Importe numérico del ingreso
+ * @property descripcion - Descripción opcional del ingreso
+ * @property fecha - Fecha del ingreso en formato ISO (yyyy-mm-dd) o según la DB
  */
 export interface Ingreso {
   cartera_nombre: string;
   id_usuario: number;
   importe: number;
   descripcion?: string;
-  fecha: string; // formato dd-mm-aaaa
+  fecha: string; // formato yyyy-mm-dd
 }
 
 /**
- * Estructura de un gasto
+ * Estructura que describe un gasto/transacción salida.
+ *
+ * Incluye información mínima requerida para crear/editar gastos.
+ *
+ * @property cartera_nombre - Nombre de la cartera
+ * @property id_usuario - Identificador del usuario
+ * @property categoria_nombre - Categoría del gasto (p.ej. 'comida', 'transporte')
+ * @property importe - Importe numérico (positivo)
+ * @property fecha - Fecha del gasto en formato ISO (yyyy-mm-dd)
+ * @property descripcion - Descripción opcional
+ * @property fijo - Indica si es un gasto fijo (opcional)
  */
 export interface Gasto {
   cartera_nombre: string;
   id_usuario: number;
   categoria_nombre: string;
   importe: number;
-  fecha: string; // formato dd-mm-aaaa
+  fecha: string; // formato yyyy-mm-dd
   descripcion?: string;
   fijo?: boolean;
 }
 
 /**
- * Obtiene todos los ingresos de una cartera
+ * Servicio de transacciones (ingresos y gastos).
+ *
+ * Este objeto agrupa funciones que interactúan con la base de datos
+ * a través del cliente Supabase (`createClient`).
+ * Las funciones realizan validaciones básicas y devuelven estructuras
+ * uniformes { success, error } o { data, error } según el caso.
  */
 const service = {
   async getIngresos(cartera_nombre: string, id_usuario: number): Promise<Ingreso[]> {
@@ -507,20 +530,115 @@ const service = {
 };
 
 // Export named wrapper functions that delegate to the service object so external API is unchanged
+/**
+ * Obtiene los ingresos de una cartera.
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_usuario - Id del usuario
+ * @returns Promise<Ingreso[]> - Lista de ingresos (puede estar vacía)
+ */
 export const getIngresos = (cartera_nombre: string, id_usuario: number) => service.getIngresos(cartera_nombre, id_usuario);
+
+/**
+ * Obtiene los gastos de una cartera.
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_usuario - Id del usuario
+ * @returns Promise<Gasto[]> - Lista de gastos (puede estar vacía)
+ */
 export const getGastos = (cartera_nombre: string, id_usuario: number) => service.getGastos(cartera_nombre, id_usuario);
+
+/**
+ * Crea un ingreso en la base de datos.
+ * @param ingreso - Objeto Ingreso con los campos requeridos
+ * @returns Promise<{ data: any; error: string | null }>
+ */
 export const createIngreso = (ingreso: Ingreso) => service.createIngreso(ingreso);
+
+/**
+ * Crea un gasto en la base de datos (valida importe, fecha y categoría).
+ * @param gasto - Objeto Gasto
+ * @returns Promise<{ data: Gasto | null; error: string | null }>
+ */
 export const createGasto = (gasto: Gasto) => service.createGasto(gasto);
+
+/**
+ * Elimina un ingreso y ajusta el saldo de la cartera.
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_ingreso - Id del ingreso a eliminar
+ * @returns Promise<{ success: boolean; error: string | null }>
+ */
 export const deleteIngreso = (id_usuario: number, cartera_nombre: string, id_ingreso: number) => service.deleteIngreso(id_usuario, cartera_nombre, id_ingreso);
+
+/**
+ * Elimina un gasto y ajusta el saldo de la cartera.
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_gasto - Id del gasto a eliminar
+ * @returns Promise<{ success: boolean; error: string | null }>
+ */
 export const deleteGasto = (id_usuario: number, cartera_nombre: string,  id_gasto: number) => service.deleteGasto(id_usuario, cartera_nombre, id_gasto);
+
+/**
+ * Calcula el saldo actual de la cartera (saldo inicial + ingresos - gastos).
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_usuario - Id del usuario
+ * @returns Promise<number> - Saldo calculado
+ */
 export const calcularSaldoCartera = (cartera_nombre: string, id_usuario: number) => service.calcularSaldoCartera(cartera_nombre, id_usuario);
+
+/**
+ * Actualiza el saldo de la cartera sumando o restando el importe.
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_usuario - Id del usuario
+ * @param importe - Importe a aplicar
+ * @param tipo - "ingreso" para sumar, "gasto" para restar
+ * @returns Promise<{ success: boolean; error: string | null }>
+ */
 export const actualizarSaldoCartera = (cartera_nombre: string, id_usuario: number, importe: number, tipo: "ingreso" | "gasto") => service.actualizarSaldoCartera(cartera_nombre, id_usuario, importe, tipo);
+
+/**
+ * Obtiene los últimos movimientos de un usuario (RPC).
+ * @param id_usuario - Id del usuario
+ * @returns Promise<{ data: any[]; error: string | null }>
+ */
 export const getUltimosMovimientosUsuario = (id_usuario: number) => service.getUltimosMovimientosUsuario(id_usuario);
+
+/**
+ * Obtiene los últimos movimientos de una cartera (RPC).
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @returns Promise<{ data: any[]; error: string | null }>
+ */
 export const getUltimosMovimientosCartera = (id_usuario: number, cartera_nombre: string) => service.getUltimosMovimientosCartera(id_usuario, cartera_nombre);
+
+/**
+ * Elimina todas las transacciones (ingresos y gastos) asociadas a una cartera.
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @returns Promise<{ success: boolean; error: string | null }>
+ */
 export const deleteTransaccionesCartera = (id_usuario: number, cartera_nombre: string) =>
   service.deleteTransaccionesCartera(id_usuario, cartera_nombre);
+
+/**
+ * Obtiene el número total de transacciones de una cartera.
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @returns Promise<{ total: number; error: string | null }>
+ */
 export const getNumeroTransacciones = (id_usuario: number, cartera_nombre: string) =>
   service.getNumeroTransacciones(id_usuario, cartera_nombre);
+
+/**
+ * Edita un ingreso y ajusta el saldo por la diferencia.
+ * @param id_ingreso - Id del ingreso
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @param newImporte - Nuevo importe
+ * @param newDescripcion - Nueva descripción opcional
+ * @param newFecha - Nueva fecha opcional (yyyy-mm-dd)
+ * @returns Promise<{ success: boolean; error: string | null }>
+ */
 export const editIngreso = (
   id_ingreso: number,
   id_usuario: number,
@@ -530,6 +648,17 @@ export const editIngreso = (
   newFecha?: string
 ) => service.editIngreso(id_ingreso, id_usuario, cartera_nombre, newImporte, newDescripcion, newFecha);
 
+/**
+ * Edita un gasto y ajusta el saldo por la diferencia.
+ * @param id_gasto - Id del gasto
+ * @param id_usuario - Id del usuario
+ * @param cartera_nombre - Nombre de la cartera
+ * @param newImporte - Nuevo importe
+ * @param newDescripcion - Nueva descripción opcional
+ * @param newFecha - Nueva fecha opcional (yyyy-mm-dd)
+ * @param newCategoria - Nueva categoría opcional
+ * @returns Promise<{ success: boolean; error: string | null }>
+ */
 export const editGasto = (
   id_gasto: number,
   id_usuario: number,
