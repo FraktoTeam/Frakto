@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/services"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "readme": "none",
+  "skipErrorChecking": true,
+  "exclude": [
+    "**/__tests__/**",
+    "**/tests/**",
+    "**/*.test.{ts,tsx}",
+    "**/*.spec.{ts,tsx}"
+  ]
+}
