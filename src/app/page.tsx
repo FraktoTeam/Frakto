@@ -5,6 +5,7 @@ import { Home } from "./components/Home";
 import { Portfolio } from "./components/Portfolio";
 import { Home as HomeIcon, Briefcase, BarChart3, Settings, CreditCard, Repeat } from "lucide-react";
 import { FixedExpenses } from "./components/FixedExpenses";
+import AlertBanner from "./components/alertBanner";
 
 
 export default function App() {
@@ -169,6 +170,8 @@ export default function App() {
     </aside>
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
+        {/* 🟩 Banner de alertas */}
+          <AlertBanner userId={1} />
         {/* Content */}
         <div className="p-6">{renderView()}</div>
       </main>

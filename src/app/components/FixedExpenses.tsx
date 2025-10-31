@@ -8,7 +8,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import { createGastoFijo, deleteGastoFijo, getGastosFijos, toggleGastoFijoActivo, updateGastoFijo } from "@/services/gastoFijoService";
+import { createGastoFijo, deleteGastoFijo, evaluarRiesgoGastoFijo, getGastosFijos, toggleGastoFijoActivo, updateGastoFijo } from "@/services/gastoFijoService";
 import { getCarteras } from "@/services/carterasService";
 import { ScrollArea } from "./ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
@@ -42,7 +42,8 @@ export function FixedExpenses() {
   const [frequency, setFrequency] = useState("");
   const [startDate, setStartDate] = useState("");
   const [description, setDescription] = useState("");
-  
+  const [userId, setUserId] = useState(1);
+
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<FixedExpense | null>(null);
 
@@ -54,7 +55,7 @@ export function FixedExpenses() {
   useEffect(() => {
     const fetchPortfolios = async () => {
       try {
-        const data = await getCarteras();
+        const data = await getCarteras(userId);
         setPortfolios(data || []);
       } catch (error) {
         console.error("Error obteniendo carteras:", error);
@@ -62,12 +63,12 @@ export function FixedExpenses() {
     };
 
     fetchPortfolios();
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     const fetchFixedExpenses = async () => {
       try {
-        const data = await getGastosFijos(1); // ⚠️ Pon aquí el id del usuario real
+        const data = await getGastosFijos(userId);
         // Adaptamos el formato del backend al frontend
         const mappedExpenses: FixedExpense[] = data.map((gasto) => ({
           id: gasto.id_gasto!,
@@ -253,6 +254,8 @@ export function FixedExpenses() {
         descripcion: description || "Gasto fijo",
       });
 
+      await evaluarRiesgoGastoFijo(portfolio.nombre, portfolio.id_usuario);
+
       if (!success || error) {
         setFormErrors([error || "Error desconocido al actualizar el gasto fijo"]);
         return;
@@ -313,6 +316,7 @@ export function FixedExpenses() {
     try {
       // Llamamos al servicio para eliminar de la base de datos
       const { success, error } = await deleteGastoFijo(deletingExpense.id);
+      await evaluarRiesgoGastoFijo(deletingExpense.portfolioName, deletingExpense.portfolioId);
 
       if (!success) {
         console.error("Error eliminando gasto fijo:", error);

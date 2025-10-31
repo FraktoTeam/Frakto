@@ -122,6 +122,16 @@ const service = {
     return { data, error: null };
   },
 
+  async evaluarRiesgoGastoIngreso(
+      cartera_nombre: string,
+      id_usuario: number
+    ): Promise<void> {
+      await createClient.rpc('evaluar_riesgo_gasto_ingreso', {
+      c_nombre: cartera_nombre,
+      c_id: id_usuario
+    });
+  },
+
   /**
    * Elimina un ingreso por su id_ingreso y actualiza el saldo de la cartera.
    */
@@ -161,6 +171,8 @@ const service = {
         importe,
         "gasto"
       );
+
+      await service.evaluarRiesgoGastoIngreso(cartera_nombre, id_usuario);
 
       if (saldoError) console.warn("Error actualizando saldo tras borrar ingreso:", saldoError);
 
@@ -210,6 +222,8 @@ const service = {
         importe,
         "ingreso"
       );
+
+      await service.evaluarRiesgoGastoIngreso(cartera_nombre, id_usuario);
 
       if (saldoError) console.warn("Error actualizando saldo tras borrar gasto:", saldoError);
 
@@ -459,6 +473,8 @@ const service = {
         );
       }
 
+      await service.evaluarRiesgoGastoIngreso(cartera_nombre, id_usuario);
+
       return { success: true, error: null };
     } catch (err: any) {
       console.error("Error al editar ingreso:", err);
@@ -519,6 +535,8 @@ const service = {
           diferencia > 0 ? "gasto" : "ingreso"
         );
       }
+
+      await service.evaluarRiesgoGastoIngreso(cartera_nombre, id_usuario);
 
       return { success: true, error: null };
     } catch (err: any) {
@@ -647,6 +665,16 @@ export const editIngreso = (
   newDescripcion?: string,
   newFecha?: string
 ) => service.editIngreso(id_ingreso, id_usuario, cartera_nombre, newImporte, newDescripcion, newFecha);
+
+/** Evalúa el riesgo de gasto/ingreso para una cartera y usuario.
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_usuario - Id del usuario
+ * @returns Promise<void>
+ */
+export const evaluarRiesgoGastoIngreso = (
+  cartera_nombre: string,
+  id_usuario: number
+) => service.evaluarRiesgoGastoIngreso(cartera_nombre, id_usuario);
 
 /**
  * Edita un gasto y ajusta el saldo por la diferencia.

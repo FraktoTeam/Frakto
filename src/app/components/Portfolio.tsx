@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
-import { createIngreso, createGasto, calcularSaldoCartera, actualizarSaldoCartera, 
+import { createIngreso, createGasto, evaluarRiesgoGastoIngreso, calcularSaldoCartera, actualizarSaldoCartera, 
   getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera, getNumeroTransacciones, editGasto, editIngreso, deleteGasto, deleteIngreso } from "@/services/transaccionService";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -322,6 +322,8 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
         "ingreso"
       );
 
+      await evaluarRiesgoGastoIngreso(selectedPortfolio.name, userId);
+
       setPortfolios((prev) =>
         prev.map((p) =>
           p.name === selectedPortfolio.name
@@ -385,7 +387,6 @@ const handleAddExpense = async () => {
       importe,
       fecha: expenseDate,
       descripcion: expenseDescription || "Gasto",
-      fijo: false,
     };
 
     const { error } = await createGasto(gasto);
@@ -411,6 +412,8 @@ const handleAddExpense = async () => {
       importe,
       "gasto"
     );
+
+    await evaluarRiesgoGastoIngreso(selectedPortfolio.name, userId);
 
     setPortfolios((prev) =>
       prev.map((p) =>

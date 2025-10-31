@@ -82,6 +82,7 @@ export async function createGastoFijo(gasto: GastoFijo): Promise<{ data: GastoFi
     .select()
     .single();
 
+  await evaluarRiesgoGastoFijo(gasto.cartera_nombre, gasto.id_usuario);
   if (error) return { data: null, error: error.message };
   return { data, error: null };
 }
@@ -118,6 +119,21 @@ export async function deleteGastoFijo(id_gasto: number): Promise<{ success: bool
   if (error) return { success: false, error: error.message };
   return { success: true, error: null };
 }
+
+/** Evalúa el riesgo de gasto fijo para una cartera y usuario.
+ * @param cartera_nombre - Nombre de la cartera
+ * @param id_usuario - Id del usuario
+ * @returns Promise<void>
+ */
+export async function evaluarRiesgoGastoFijo(
+      cartera_nombre: string,
+      id_usuario: number
+    ): Promise<void> {
+      await createClient.rpc('evaluar_riesgo_gasto_fijo', {
+      c_nombre: cartera_nombre,
+      c_id: id_usuario
+    });
+  }
 
 /**
  * Activa o desactiva un gasto fijo (toggle de la propiedad `activo`).
