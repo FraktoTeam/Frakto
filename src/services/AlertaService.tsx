@@ -1,13 +1,9 @@
-// src/lib/alertService.ts
-import { createClient } from "@/utils/client"; // ajusta la ruta si es diferente
+import { createClient } from "@/utils/client"; // ya es el cliente Supabase
 
-const supabase = createClient;
-
-/**
- * Obtener alertas de un usuario (ordenadas por fecha descendente)
- */
 export async function getAlertasUsuario(id_usuario: number) {
-  const { data, error } = await supabase
+  console.log("🟢 getAlertasUsuario: iniciando consulta para usuario", id_usuario);
+
+  const { data, error } = await createClient
     .from("alerta")
     .select("*")
     .eq("id_usuario", id_usuario)
@@ -20,15 +16,10 @@ export async function getAlertasUsuario(id_usuario: number) {
   return data ?? [];
 }
 
-/**
- * Suscribirse a cambios realtime en la tabla alerta para un usuario dado.
- * callback recibe el payload (payload.eventType, payload.new, payload.old)
- */
-export function subscribeAlertasUsuario(
-  id_usuario: number,
-  callback: (payload: any) => void
-) {
-  const channel = supabase
+export function subscribeAlertasUsuario(id_usuario: number, callback: (payload: any) => void) {
+  console.log("🟡 Subscribiéndose a alertas realtime de usuario", id_usuario);
+
+  const channel = createClient
     .channel(`alertas_user_${id_usuario}`)
     .on(
       "postgres_changes",
@@ -39,24 +30,27 @@ export function subscribeAlertasUsuario(
         filter: `id_usuario=eq.${id_usuario}`,
       },
       (payload) => {
+        console.log("📡 Evento realtime recibido:", payload);
         callback(payload);
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log("📡 Estado de suscripción:", status);
+    });
 
   return channel;
 }
 
-/**
- * Cancelar suscripción
- */
 export function unsubscribeChannel(channel: any) {
   if (!channel) return;
   try {
-    // Supabase v2: removeChannel
-    supabase.removeChannel(channel);
+    console.log("🔴 Eliminando canal realtime");
+    createClient.removeChannel(channel);
   } catch (e) {
-    // Fallback: channel.unsubscribe()
-    try { channel.unsubscribe(); } catch (e2) {}
+    try {
+      channel.unsubscribe();
+    } catch (e2) {
+      console.error("Error al cancelar suscripción:", e2);
+    }
   }
 }
