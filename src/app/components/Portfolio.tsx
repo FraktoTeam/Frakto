@@ -1022,6 +1022,8 @@ if (selectedPortfolio) {
         <DialogContent className="text-center">
           <DialogHeader>
             <DialogTitle className="text-green-600">{confirmMessage}</DialogTitle>
+            {/* Off-screen confirmation helper for tests: visible to DOM/text queries but visually off-screen */}
+            <div data-testid="portfolio-confirm-message" style={{ position: "absolute", left: -9999, top: -9999 }}>{confirmMessage}</div>
             <DialogDescription>
               Los datos se han guardado correctamente.
             </DialogDescription>
