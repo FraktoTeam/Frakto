@@ -37,7 +37,6 @@ export interface Cartera {
 /**
  * Obtiene todas las carteras existentes o, si se indica, las de un usuario específico.
  * 
- * @async
  * @function getCarteras
  * @param {number} [id_usuario] - ID opcional del usuario propietario. Si no se proporciona, devuelve todas las carteras.
  * @returns {Promise<Cartera[]>} Lista de carteras obtenidas.
@@ -62,7 +61,6 @@ export async function getCarteras(id_usuario?: number): Promise<Cartera[]> {
 /**
  * Obtiene una cartera específica por nombre y usuario.
  * 
- * @async
  * @function getCartera
  * @param {string} nombre - Nombre de la cartera a buscar.
  * @param {number} id_usuario - ID del usuario propietario.
@@ -89,7 +87,6 @@ export async function getCartera(nombre: string, id_usuario: number): Promise<Ca
  * Crea una nueva cartera tras verificar que no exista otra con el mismo nombre
  * para el mismo usuario.
  * 
- * @async
  * @function createCartera
  * @param {string} nombre - Nombre de la nueva cartera.
  * @param {number} saldo - Saldo inicial.
@@ -137,7 +134,6 @@ export async function createCartera(
 /**
  * Actualiza el saldo de una cartera existente en la base de datos.
  * 
- * @async
  * @function updateCartera
  * @param {string} nombre - Nombre de la cartera a modificar.
  * @param {number} id_usuario - ID del usuario propietario.
@@ -162,7 +158,6 @@ export async function updateCartera(nombre: string, id_usuario: number, nuevoSal
  * Cambia el nombre de una cartera de un usuario, validando que no exista otro registro
  * con el mismo nombre.
  * 
- * @async
  * @function editCartera
  * @param {number} id_usuario - ID del usuario propietario.
  * @param {string} oldName - Nombre actual de la cartera.
@@ -204,7 +199,6 @@ export async function editCartera(
 /**
  * Elimina una cartera de la base de datos.
  * 
- * @async
  * @function deleteCartera
  * @param {number} id_usuario - ID del usuario propietario.
  * @param {string} nombre - Nombre de la cartera a eliminar.
@@ -230,11 +224,25 @@ export async function deleteCartera(
 }
 
 /**
- * 
- * @param nombre 
- * @param id_usuario 
- * @param fecha 
- * @returns 
+ * Actualiza la fecha de la última modificación de una cartera.
+ *
+ * Este helper escribe en la columna `lastUpdate` de la tabla `cartera` el
+ * valor de `fecha` proporcionado. Se usa desde los flujos de transacciones
+ * (ingresos/gastos) para marcar cuándo se actualizó por última vez una
+ * cartera después de una operación que cambia su saldo o movimientos.
+ *
+ * Nota: la función lanza una excepción si Supabase devuelve un error. Los
+ * llamadores deben capturar errores si desean manejar fallos silenciosamente.
+ *
+ * @function actualizarLastUpdate
+ * @param {string} nombre - Nombre de la cartera a actualizar.
+ * @param {number} id_usuario - Identificador del usuario propietario.
+ * @param {string} fecha - Fecha en formato ISO `YYYY-MM-DD` que se guardará.
+ * @returns {Promise<any>} Resultado de la operación de actualización (datos devueltos por Supabase).
+ * @throws {Error} Si ocurre un error durante la operación con Supabase.
+ *
+ * @example
+ * await actualizarLastUpdate('Personal', 1, '2025-11-03');
  */
 export async function actualizarLastUpdate(
   nombre: string,

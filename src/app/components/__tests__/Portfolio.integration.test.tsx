@@ -19,6 +19,7 @@ jest.mock("@/services/carterasService", () => ({
   }),
   editCartera: jest.fn().mockResolvedValue({ success: true }),
   deleteCartera: jest.fn().mockResolvedValue({ success: true }),
+  actualizarLastUpdate: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock("@/services/transaccionService", () => ({
@@ -94,7 +95,8 @@ describe("💼 Portfolio Component (integración ligera)", () => {
       .mockResolvedValueOnce([{ nombre: "Personal", saldo: 1100, id_usuario: mockUserId }]);
 
     const trans = require("@/services/transaccionService");
-    (trans.createIngreso as jest.Mock).mockResolvedValueOnce({ data: null, error: null });
+  // Devolver un data truthy para que el componente considere la operación exitosa
+  (trans.createIngreso as jest.Mock).mockResolvedValueOnce({ data: { id_ingreso: 1 }, error: null });
     (trans.calcularSaldoCartera as jest.Mock).mockResolvedValueOnce(1100);
     (trans.actualizarSaldoCartera as jest.Mock).mockResolvedValueOnce({ success: true, error: null });
 
@@ -173,7 +175,8 @@ describe("💼 Portfolio Component (integración ligera)", () => {
       .mockResolvedValueOnce([{ nombre: "Personal", saldo: 1900, id_usuario: mockUserId }]);
 
     const trans = require("@/services/transaccionService");
-    (trans.createGasto as jest.Mock).mockResolvedValueOnce({ data: null, error: null });
+  // Devolver un data truthy para que el componente considere la operación exitosa
+  (trans.createGasto as jest.Mock).mockResolvedValueOnce({ data: { id_gasto: 1 }, error: null });
     (trans.calcularSaldoCartera as jest.Mock).mockResolvedValueOnce(1900);
     (trans.actualizarSaldoCartera as jest.Mock).mockResolvedValueOnce({ success: true, error: null });
 
