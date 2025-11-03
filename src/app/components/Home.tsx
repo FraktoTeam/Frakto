@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
 import { Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
-import { WalletMinimal, Home, BarChart2, Settings, CreditCard } from "lucide-react";
+import { WalletMinimal, Home as HomeIcon, BarChart2, Settings, CreditCard } from "lucide-react";
 import { getFirebaseApp } from "../../utils/firebaseClient";
 import { solicitarPermisoYToken, escucharMensajes } from "@/utils/firebaseMessaging";
 

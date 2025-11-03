@@ -17,3 +17,41 @@ import { TextEncoder, TextDecoder } from "util";
 (global as any).TextDecoder = TextDecoder;
 
 import "whatwg-fetch";
+
+// Minimal firebase mocks to avoid `unsupported-browser` errors when tests import firebase/messaging
+// These provide the basic functions used by our firebase utilities without requiring a browser.
+try {
+	// Provide a lightweight Notification polyfill for tests (requestPermission + constructor)
+	// so `solicitarPermisoYToken` and `new Notification(...)` don't crash in Node/jsdom.
+	class MockNotification {
+		title: string;
+		body?: string;
+		constructor(title: string, options?: { body?: string }) {
+			this.title = title;
+			this.body = options?.body;
+		}
+		static async requestPermission() {
+			// default to 'denied' to avoid calling getToken during tests
+			return "denied";
+		}
+	}
+	(global as any).Notification = MockNotification;
+
+	// jest is available in the setup environment
+	jest.mock("firebase/messaging", () => ({
+		__esModule: true,
+		getMessaging: jest.fn(() => ({})),
+		getToken: jest.fn(async () => null),
+		onMessage: jest.fn(() => () => {}),
+	}));
+
+	// Ensure the firebase/app mock includes getApps so code calling getApps().length works
+	jest.mock("firebase/app", () => ({
+		__esModule: true,
+		initializeApp: jest.fn((config) => ({ name: (config && config.projectId) || "[DEFAULT]" })),
+		getApp: jest.fn(() => ({ name: "[MOCK_APP]" })),
+		getApps: jest.fn(() => []),
+	}));
+} catch (e) {
+	// If jest.mock isn't available here for some reason, continue silently — tests will fail later and show the reason.
+}

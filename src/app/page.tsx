@@ -5,7 +5,7 @@ import { Home } from "./components/Home";
 import { Portfolio } from "./components/Portfolio";
 import { Home as HomeIcon, Briefcase, BarChart3, Settings, CreditCard, Repeat } from "lucide-react";
 import { FixedExpenses } from "./components/FixedExpenses";
-import AlertBanner from "./components/alertBanner";
+import AlertBanner from "./components/AlertBanner";
 
 
 export default function App() {

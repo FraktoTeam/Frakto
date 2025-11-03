@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { getAlertasUsuario, subscribeAlertasUsuario, unsubscribeChannel } from "../../services/AlertaService";
+import { getAlertasUsuario, subscribeAlertasUsuario, unsubscribeChannel } from "../../services/alertaService";
 import toast from "react-hot-toast";
 
 type Alerta = {

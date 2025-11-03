@@ -26,6 +26,7 @@ jest.mock("@/services/transaccionService", () => ({
   getGastos: jest.fn().mockResolvedValue([]),
   createIngreso: jest.fn().mockResolvedValue({ data: null, error: null }),
   createGasto: jest.fn().mockResolvedValue({ data: null, error: null }),
+  evaluarRiesgoGastoIngreso: jest.fn().mockResolvedValue(null),
   calcularSaldoCartera: jest.fn(),
   actualizarSaldoCartera: jest.fn().mockResolvedValue({ success: true, error: null }),
   getUltimosMovimientosUsuario: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -111,8 +112,18 @@ describe("💼 Portfolio Component (integración ligera)", () => {
     const { getByRole: getByRoleInIngreso3 } = require("@testing-library/react").within(ingresoDialog3);
     fireEvent.click(getByRoleInIngreso3("button", { name: /Registrar Ingreso/i }));
 
-    // Aparece confirmación
-    expect(await screen.findByText(/Ingreso registrado correctamente/)).toBeInTheDocument();
+    // Aparece confirmación (fallback: try testid first, then document text if portal timing hides testid)
+    await waitFor(() => {
+      const el = screen.queryByTestId("portfolio-confirm-message");
+      if (el) {
+        expect(el).toHaveTextContent(/Ingreso registrado correctamente/);
+        return;
+      }
+
+      // fallback: search whole document text
+      const txt = (document.body.textContent || "").replace(/\s+/g, " ");
+      expect(txt).toMatch(/Ingreso registrado correctamente/);
+    });
 
     // Al aceptar, fetchWallets es llamado y el balance se actualiza
     fireEvent.click(screen.getByText("Aceptar"));
@@ -179,8 +190,17 @@ describe("💼 Portfolio Component (integración ligera)", () => {
     const dialogsG4 = await screen.findAllByRole("dialog");
     const gastoDialog4 = dialogsG4[dialogsG4.length - 1];
     const { getByRole: getByRoleInGasto4 } = require("@testing-library/react").within(gastoDialog4);
-    fireEvent.click(getByRoleInGasto4("button", { name: /Registrar Gasto/i }));
-    expect(await screen.findByText(/Gasto registrado correctamente/)).toBeInTheDocument();
+  fireEvent.click(getByRoleInGasto4("button", { name: /Registrar Gasto/i }));
+    await waitFor(() => {
+      const el = screen.queryByTestId("portfolio-confirm-message");
+      if (el) {
+        expect(el).toHaveTextContent(/Gasto registrado correctamente/);
+        return;
+      }
+
+      const txt = (document.body.textContent || "").replace(/\s+/g, " ");
+      expect(txt).toMatch(/Gasto registrado correctamente/);
+    });
   });
 
   it("muestra estado vacío cuando no hay carteras", async () => {

@@ -626,7 +626,7 @@ export function FixedExpenses() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Deseas eliminar este gasto fijo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará permanentemente el gasto fijo "{deletingExpense?.description}" de ${deletingExpense?.amount}.
+              Esta acción eliminará permanentemente el gasto fijo &quot;{deletingExpense?.description}&quot; de ${deletingExpense?.amount}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
