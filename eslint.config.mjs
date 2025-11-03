@@ -23,6 +23,10 @@ const eslintConfig = [
       "@typescript-eslint/no-require-imports": "off",
 
       "@typescript-eslint/no-explicit-any": "warn",
+
+      "@typescript-eslint/ban-ts-comment": "warn",
+
+      "@typescript-eslint/no-unsafe-function-type": "off"
     },
   },
 ];
