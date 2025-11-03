@@ -29,6 +29,9 @@ export interface Cartera {
   saldo: number;
   /** Identificador del usuario propietario. */
   id_usuario: number;
+
+  /** Fecha de la última actualización de la cartera. */
+  lastUpdate: string;
 }
 
 /**
@@ -224,4 +227,26 @@ export async function deleteCartera(
 
   if (error) return { success: false, error: error.message };
   return { success: true, error: null };
+}
+
+/**
+ * 
+ * @param nombre 
+ * @param id_usuario 
+ * @param fecha 
+ * @returns 
+ */
+export async function actualizarLastUpdate(
+  nombre: string,
+  id_usuario: number,
+  fecha: string // formato 'YYYY-MM-DD'
+) {
+  const { data, error } = await createClient
+    .from("cartera")
+    .update({ lastUpdate: fecha }) // recuerda usar minúsculas si tu columna se llama lastupdate
+    .eq("nombre", nombre)
+    .eq("id_usuario", id_usuario);
+
+  if (error) throw new Error(error.message);
+  return data;
 }

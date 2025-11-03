@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCarteras, createCartera, editCartera, deleteCartera } from "@/services/carterasService";
+import { getCarteras, createCartera, editCartera, deleteCartera, actualizarLastUpdate } from "@/services/carterasService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
@@ -10,7 +10,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus, Eye, TrendingUp, TrendingDown, ArrowLeft, Trash2, Pencil } from "lucide-react";
 import { createIngreso, createGasto, evaluarRiesgoGastoIngreso, calcularSaldoCartera, actualizarSaldoCartera, 
-  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera, getNumeroTransacciones, editGasto, editIngreso, deleteGasto, deleteIngreso } from "@/services/transaccionService";
+  getUltimosMovimientosUsuario, getUltimosMovimientosCartera, deleteTransaccionesCartera, getNumeroTransacciones, 
+  editGasto, editIngreso, deleteGasto, deleteIngreso } from "@/services/transaccionService";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DollarSign, ShoppingCart, Edit } from "lucide-react";
@@ -99,11 +100,11 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
             monthlyChange: "0.00€",
             trend: "up" as const,
             transactions: total ?? 0,
-            lastUpdate: "Ahora",
+            lastUpdate: c.lastUpdate ?? null
           };
         })
       );
-
+      console.log("Carteras obtenidas:", formatted);
       setPortfolios(formatted);
       return formatted;
     } catch (err) {
@@ -323,6 +324,9 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
       );
 
       await evaluarRiesgoGastoIngreso(selectedPortfolio.name, userId);
+      
+      const hoy = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+      await actualizarLastUpdate(selectedPortfolio.name, userId, hoy);
 
       setPortfolios((prev) =>
         prev.map((p) =>
@@ -339,6 +343,7 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
             : p
         )
       );
+      
 
       setIncomeAmount("");
       setIncomeDate("");
@@ -415,6 +420,8 @@ const handleAddExpense = async () => {
 
     await evaluarRiesgoGastoIngreso(selectedPortfolio.name, userId);
 
+    const hoy = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    await actualizarLastUpdate(selectedPortfolio.name, userId, hoy);
     setPortfolios((prev) =>
       prev.map((p) =>
         p.name === selectedPortfolio.name
@@ -541,6 +548,9 @@ const handleSaveEditTransaction = async () => {
         newErrors.amount = "Error al actualizar el gasto. Inténtalo más tarde.";
         setEditTransactionErrors(newErrors);
         return;
+      } else {
+        const hoy = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+        await actualizarLastUpdate(selectedPortfolio.name, userId, hoy);
       }
     }
 
@@ -589,7 +599,8 @@ const handleConfirmDeleteTransaction = async () => {
     const movimientosActualizados = await getUltimosMovimientosCartera(userId, selectedPortfolio.name);
     console.log("Movimientos actualizados después de eliminar:", movimientosActualizados);
     setRecentTransactions(movimientosActualizados.data || []);
-
+    const hoy = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    await actualizarLastUpdate(selectedPortfolio.name, userId, hoy);
     setIsDeleteTransactionDialogOpen(false);
   } catch (err) {
     console.error("Error al eliminar transacción:", err);
@@ -799,10 +810,25 @@ if (selectedPortfolio) {
             <CardTitle className="text-sm">Última Actualización</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">●</div>
-            <p className="text-xs text-gray-500 mt-1">
-              {selectedPortfolio.lastUpdate}
-            </p>
+            <div className="flex items-center gap-2">
+              {/* Indicador de color */}
+              <span
+                className={`h-3 w-3 rounded-full ${
+                  selectedPortfolio.lastUpdate ? "bg-green-500" : "bg-gray-400"
+                }`}
+              />
+
+              {/* Texto */}
+              <strong className="text-lg">
+                {selectedPortfolio.lastUpdate
+                  ? new Date(selectedPortfolio.lastUpdate).toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "Sin movimientos todavía"}
+              </strong>
+            </div>
           </CardContent>
         </Card>
       </div>
