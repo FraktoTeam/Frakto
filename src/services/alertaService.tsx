@@ -117,3 +117,13 @@ export function unsubscribeChannel(channel: any) {
     }
   }
 }
+
+export async function deleteAlerta(id_alerta: string, id_usuario: number) {
+  const { error } = await createClient
+    .from("alerta")
+    .delete()
+    .eq("id_alerta", id_alerta)
+    .eq("id_usuario", id_usuario); // para asegurar propiedad
+
+  if (error) throw new Error(error.message);
+}

@@ -6,6 +6,7 @@ import {
   getAlertasUsuario,
   subscribeAlertasUsuario,
   unsubscribeChannel,
+  deleteAlerta
 } from "@/services/AlertaService";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -56,6 +57,7 @@ export default function Inbox({ userId }: { userId: number }) {
   const [loading, setLoading] = useState(true);
   const chRef = useRef<any>(null);
   const [alertToDelete, setAlertToDelete] = useState<string | null>(null);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false); // Estado para el popup
 
   // Carga inicial sin fusionar: mantenemos rojas antiguas tal cual
   useEffect(() => {
@@ -158,12 +160,29 @@ export default function Inbox({ userId }: { userId: number }) {
     setAlertToDelete(alertId);
   };
 
-  const handleConfirmDelete = () => {
-    if (alertToDelete) {
-      setAlertas((prev) => prev.filter((alert) => alert.id_alerta !== alertToDelete));
-      setAlertToDelete(null);
+  const handleConfirmDelete = async () => {
+    if (alertToDelete && userId) {
+      try {
+        // Llamamos a la función deleteAlerta
+        await deleteAlerta(alertToDelete, userId);
+
+        // Si no hubo error, eliminamos la alerta localmente
+        setAlertas((prev) => prev.filter((alert) => alert.id_alerta !== alertToDelete));
+        setAlertToDelete(null); // Cierra el diálogo de confirmación
+
+        // Mostramos el popup de éxito
+        setShowDeleteSuccess(true);
+
+        // Cerrar el popup de éxito después de 3 segundos
+        setTimeout(() => {
+          setShowDeleteSuccess(false);
+        }, 3000);
+      } catch (error) {
+        console.error("Error al eliminar la alerta:", error);
+      }
     }
   };
+
 
   const handleCancelDelete = () => {
     setAlertToDelete(null);
@@ -238,7 +257,21 @@ export default function Inbox({ userId }: { userId: number }) {
         <h2>Buzón de Alertas</h2>
         <p className="text-gray-500">Historial de notificaciones y alertas del sistema</p>
       </div>
-
+      {showDeleteSuccess && (
+              <AlertDialog open={showDeleteSuccess} onOpenChange={() => setShowDeleteSuccess(false)}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Alerta Eliminada</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      La alerta se ha eliminado correctamente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowDeleteSuccess(false)}>Cerrar</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
 
       {/* Lista de Alertas */}
       <div className="space-y-4">
