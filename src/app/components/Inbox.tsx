@@ -16,8 +16,10 @@ import {
   AlertDialogDescription,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialogFooter,
   AlertDialogCancel,
+  AlertDialogAction,
+  AlertDialogTrigger
 } from "./ui/alert-dialog";
 import { Bell, X } from "lucide-react";
 
@@ -41,6 +43,7 @@ function formatDate(d: string | Date) {
     .toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
     .replace(/\//g, "-");
 }
+
 function money(n: number) {
   return (
     n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "€"
@@ -52,6 +55,7 @@ export default function Inbox({ userId }: { userId: number }) {
   const [bannerAlert, setBannerAlert] = useState<Alerta | null>(null);
   const [loading, setLoading] = useState(true);
   const chRef = useRef<any>(null);
+  const [alertToDelete, setAlertToDelete] = useState<string | null>(null);
 
   // Carga inicial sin fusionar: mantenemos rojas antiguas tal cual
   useEffect(() => {
@@ -150,6 +154,21 @@ export default function Inbox({ userId }: { userId: number }) {
     return map;
   }, [alertas]);
 
+  const handleOpenDeleteDialog = (alertId: string) => {
+    setAlertToDelete(alertId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (alertToDelete) {
+      setAlertas((prev) => prev.filter((alert) => alert.id_alerta !== alertToDelete));
+      setAlertToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setAlertToDelete(null);
+  };
+
   const activeCount = useMemo(
     () => alertas.filter((a) => a.estado_alerta === "activa").length,
     [alertas]
@@ -220,27 +239,8 @@ export default function Inbox({ userId }: { userId: number }) {
         <p className="text-gray-500">Historial de notificaciones y alertas del sistema</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Alertas Activas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="font-bold text-red-600">{activeCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Alertas Resueltas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="font-bold text-green-600">{resolvedCount}</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Lista */}
+      {/* Lista de Alertas */}
       <div className="space-y-4">
         {loading ? (
           <div className="bg-gray-100 rounded-lg p-12 text-center">
@@ -253,98 +253,77 @@ export default function Inbox({ userId }: { userId: number }) {
             <p className="text-gray-500">No hay alertas registradas</p>
           </div>
         ) : (
-          sortedAlerts.map((a) => {
-            const activa = a.estado_alerta === "activa";
-            const resolucion = resueltaParaActiva.get(a.id_alerta);
+                    sortedAlerts.map((alert) => {
+            const activa = alert.estado_alerta === "activa";
+            const resolucion = resueltaParaActiva.get(alert.id_alerta);
 
             return (
               <Card
-                key={a.id_alerta}
-                className={`${activa ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}
+                key={alert.id_alerta}
+                className={`${
+                  activa ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
+                }`}
               >
                 <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
-                        <Bell className={`h-4 w-4 ${activa ? "text-red-600" : "text-green-600"}`} />
-                        {a.cartera_nombre}
+                        <Bell
+                          className={`h-4 w-4 ${activa ? "text-red-600" : "text-green-600"}`}
+                        />
+                        {alert.cartera_nombre}
                       </CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">{formatDate(a.fecha_generacion)}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {formatDate(alert.fecha_generacion)}
+                      </p>
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs ${
-                        activa ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {activa ? "Activa" : "Resuelta"}
-                    </span>
+
+                    {/* Aquí está el cambio para poner el botón de eliminar al lado de "Activa" */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs ${
+                          activa ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {activa ? "Activa" : "Resuelta"}
+                      </span>
+
+                      {/* Botón de eliminar al lado de la etiqueta */}
+                      <button
+                        onClick={() => handleOpenDeleteDialog(alert.id_alerta)}
+                        className={`p-1 rounded-lg transition-colors ${
+                          alert.estado_alerta === "activa"
+                            ? "hover:bg-red-100 text-red-600"
+                            : "hover:bg-green-100 text-green-600"
+                        }`}
+                        aria-label="Eliminar alerta"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="space-y-3">
-                  <p className={`${activa ? "text-red-900" : "text-green-900"}`}>{a.mensaje}</p>
-
+                  <p className={`${activa ? "text-red-900" : "text-green-900"}`}>
+                    {alert.mensaje}
+                  </p>
                   <div className="mt-1 grid grid-cols-3 gap-4 pt-4 border-t border-gray-200">
                     <div>
                       <p className="text-xs text-gray-500">Saldo Actual</p>
-                      <p className="font-bold">{money(a.saldo_actual)}</p>
+                      <p className="font-bold">{money(alert.saldo_actual)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Saldo Necesario</p>
-                      <p className="font-bold">{money(a.saldo_necesario)}</p>
+                      <p className="font-bold">{money(alert.saldo_necesario)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Umbral de Riesgo</p>
-                      <p className="font-bold">{money(a.umbral_riesgo)}</p>
+                      <p className="font-bold">{money(alert.umbral_riesgo)}</p>
                     </div>
                   </div>
 
-                  {/* Ver detalle (centrado absoluto) */}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" className="mt-2">
-                        Ver detalle
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="!fixed !top-1/2 !left-1/2 !-translate-x-1/2 !-translate-y-1/2 !z-[1100]">
-                      {/* X para cerrar */}
-                      <AlertDialogCancel asChild>
-                        <button
-                          className="absolute right-3 top-3 rounded-md p-1 hover:bg-gray-100 text-gray-500"
-                          aria-label="Cerrar"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </AlertDialogCancel>
-
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{a.cartera_nombre}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {formatDate(a.fecha_generacion)} — {activa ? "Alerta activa" : "Alerta resuelta"}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-
-                      <div className="space-y-3">
-                        <p className="text-sm">{a.mensaje}</p>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-xs text-gray-500">Saldo Actual</p>
-                            <p className="font-semibold">{money(a.saldo_actual)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Saldo Necesario</p>
-                            <p className="font-semibold">{money(a.saldo_necesario)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Umbral de Riesgo</p>
-                            <p className="font-semibold">{money(a.umbral_riesgo)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </AlertDialogContent>
-                  </AlertDialog>
-
-                  {/* Si esta activa tiene resolución posterior, la mostramos como chip + modal aparte */}
+                  {/* Mostrar resolución si es activa */}
                   {activa && resolucion && (
                     <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2">
                       <span className="text-xs text-gray-500">Resuelta el</span>
@@ -402,6 +381,26 @@ export default function Inbox({ userId }: { userId: number }) {
           })
         )}
       </div>
+            {/* Dialogo de confirmación de eliminación */}
+      <AlertDialog open={alertToDelete !== null} onOpenChange={handleCancelDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta alerta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. La alerta será eliminada permanentemente del buzón.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
