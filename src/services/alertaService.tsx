@@ -37,7 +37,6 @@ export interface Alerta {
  * const alertas = await getAlertasUsuario(1);
  */
 export async function getAlertasUsuario(id_usuario: number): Promise<Alerta[]> {
-  console.log("🟢 getAlertasUsuario: iniciando consulta para usuario", id_usuario);
 
   const { data, error } = await createClient
     .from("alerta")
@@ -71,7 +70,6 @@ export async function getAlertasUsuario(id_usuario: number): Promise<Alerta[]> {
  * });
  */
 export function subscribeAlertasUsuario(id_usuario: number, callback: (payload: any) => void): any {
-  console.log("🟡 Subscribiéndose a alertas realtime de usuario", id_usuario);
 
   const channel = createClient
     .channel(`alertas_user_${id_usuario}`)
@@ -107,7 +105,6 @@ export function subscribeAlertasUsuario(id_usuario: number, callback: (payload: 
 export function unsubscribeChannel(channel: any) {
   if (!channel) return;
   try {
-    console.log("🔴 Eliminando canal realtime");
     createClient.removeChannel(channel);
   } catch (e) {
     try {
@@ -116,14 +113,4 @@ export function unsubscribeChannel(channel: any) {
       console.error("Error al cancelar suscripción:", e2);
     }
   }
-}
-
-export async function deleteAlerta(id_alerta: string, id_usuario: number) {
-  const { error } = await createClient
-    .from("alerta")
-    .delete()
-    .eq("id_alerta", id_alerta)
-    .eq("id_usuario", id_usuario); // para asegurar propiedad
-
-  if (error) throw new Error(error.message);
 }

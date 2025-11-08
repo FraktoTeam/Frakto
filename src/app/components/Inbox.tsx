@@ -6,8 +6,7 @@ import {
   getAlertasUsuario,
   subscribeAlertasUsuario,
   unsubscribeChannel,
-  deleteAlerta
-} from "@/services/AlertaService";
+} from "@/services/alertaService";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -22,7 +21,7 @@ import {
   AlertDialogAction,
   AlertDialogTrigger
 } from "./ui/alert-dialog";
-import { Bell, X } from "lucide-react";
+import { Bell, X, Info } from "lucide-react";
 
 type Estado = "activa" | "resuelta";
 
@@ -56,8 +55,7 @@ export default function Inbox({ userId }: { userId: number }) {
   const [bannerAlert, setBannerAlert] = useState<Alerta | null>(null);
   const [loading, setLoading] = useState(true);
   const chRef = useRef<any>(null);
-  const [alertToDelete, setAlertToDelete] = useState<string | null>(null);
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false); // Estado para el popup
+  const [showInfo, setShowInfo] = useState(false);
 
   // Carga inicial sin fusionar: mantenemos rojas antiguas tal cual
   useEffect(() => {
@@ -156,38 +154,6 @@ export default function Inbox({ userId }: { userId: number }) {
     return map;
   }, [alertas]);
 
-  const handleOpenDeleteDialog = (alertId: string) => {
-    setAlertToDelete(alertId);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (alertToDelete && userId) {
-      try {
-        // Llamamos a la función deleteAlerta
-        await deleteAlerta(alertToDelete, userId);
-
-        // Si no hubo error, eliminamos la alerta localmente
-        setAlertas((prev) => prev.filter((alert) => alert.id_alerta !== alertToDelete));
-        setAlertToDelete(null); // Cierra el diálogo de confirmación
-
-        // Mostramos el popup de éxito
-        setShowDeleteSuccess(true);
-
-        // Cerrar el popup de éxito después de 3 segundos
-        setTimeout(() => {
-          setShowDeleteSuccess(false);
-        }, 3000);
-      } catch (error) {
-        console.error("Error al eliminar la alerta:", error);
-      }
-    }
-  };
-
-
-  const handleCancelDelete = () => {
-    setAlertToDelete(null);
-  };
-
   const activeCount = useMemo(
     () => alertas.filter((a) => a.estado_alerta === "activa").length,
     [alertas]
@@ -251,28 +217,48 @@ export default function Inbox({ userId }: { userId: number }) {
   return (
     <div className="space-y-6">
       {banner}
+      {/* Icono de información (arriba a la derecha) */}
+      <div className="absolute top-4 right-6 z-50">
+        <button
+          onClick={() => setShowInfo(true)}
+          aria-label="Información sobre las alertas"
+          className="flex items-center justify-center h-10 w-10 rounded-full border border-gray-300 text-gray-500 hover:text-green-700 hover:border-green-500 hover:bg-green-50 transition-all duration-300 shadow-sm"
+        >
+          <Info className="h-6 w-6" strokeWidth={2.2} />
+        </button>
+      </div>
+
+      {/* Modal con información */}
+      <AlertDialog open={showInfo} onOpenChange={setShowInfo}>
+        <AlertDialogContent className="max-w-md text-center">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-semibold text-gray-800">
+              Información del Buzón
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600 leading-relaxed">
+              Las alertas se eliminan automáticamente al final de cada mes para mantener tu buzón ordenado.  
+              <br />
+              <span className="text-gray-500 text-sm">
+                Solo se conservan las alertas del mes actual.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center">
+            <AlertDialogCancel
+              onClick={() => setShowInfo(false)}
+              className="bg-green-600 text-white hover:bg-green-700 px-6 rounded-lg"
+            >
+              Entendido
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Header */}
       <div className="pt-2">
         <h2>Buzón de Alertas</h2>
         <p className="text-gray-500">Historial de notificaciones y alertas del sistema</p>
       </div>
-      {showDeleteSuccess && (
-              <AlertDialog open={showDeleteSuccess} onOpenChange={() => setShowDeleteSuccess(false)}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Alerta Eliminada</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      La alerta se ha eliminado correctamente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setShowDeleteSuccess(false)}>Cerrar</AlertDialogCancel>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-
       {/* Lista de Alertas */}
       <div className="space-y-4">
         {loading ? (
@@ -318,21 +304,8 @@ export default function Inbox({ userId }: { userId: number }) {
                           activa ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
                         }`}
                       >
-                        {activa ? "Activa" : "Resuelta"}
+                        {activa ? "Riesgo" : "Resuelta"}
                       </span>
-
-                      {/* Botón de eliminar al lado de la etiqueta */}
-                      <button
-                        onClick={() => handleOpenDeleteDialog(alert.id_alerta)}
-                        className={`p-1 rounded-lg transition-colors ${
-                          alert.estado_alerta === "activa"
-                            ? "hover:bg-red-100 text-red-600"
-                            : "hover:bg-green-100 text-green-600"
-                        }`}
-                        aria-label="Eliminar alerta"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
                 </CardHeader>
@@ -414,26 +387,6 @@ export default function Inbox({ userId }: { userId: number }) {
           })
         )}
       </div>
-            {/* Dialogo de confirmación de eliminación */}
-      <AlertDialog open={alertToDelete !== null} onOpenChange={handleCancelDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar esta alerta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. La alerta será eliminada permanentemente del buzón.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelDelete}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

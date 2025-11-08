@@ -137,25 +137,52 @@ export default function App() {
           </ul>
         </nav>
 
-{/* Buzón (abajo, separado) */}
-<div className="p-4 border-t border-gray-200 sticky bottom-6 bg-white">
-  <button
-    onClick={() => setActiveView("inbox")}
-    className={[
-      "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors",
-      activeView === "inbox"
-        ? "bg-green-50 text-green-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,.15)]"
-        : "text-gray-700 hover:bg-gray-100",
-    ].join(" ")}
-    title="Buzón"
-  >
-    <Mail className={`h-5 w-5 flex-shrink-0 ${activeView === "inbox" ? "text-green-700" : "text-gray-700"}`} />
-    <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-      Buzón
-    </span>
-  </button>
-</div>
+        {/* Buzón (abajo, separado) */}
+        <div className="p-4 border-t border-gray-200 sticky bottom-6 bg-white">
+          <button
+            onClick={() => setActiveView("inbox")}
+            className={[
+              "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors",
+              activeView === "inbox"
+                ? "bg-green-50 text-green-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,.15)]"
+                : "text-gray-700 hover:bg-gray-100",
+            ].join(" ")}
+            title="Buzón"
+          >
+            <Mail className={`h-5 w-5 flex-shrink-0 ${activeView === "inbox" ? "text-green-700" : "text-gray-700"}`} />
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+              Buzón
+            </span>
+          </button>
+        </div>
+        {/* Información de usuario (debajo del buzón) */}
+        <div className="p-4 border-t border-gray-200 bg-white">
+          <div className="bg-green-50 rounded-lg p-4 flex items-center justify-center group-hover:justify-start transition-all duration-300">
+            {/* Icono visible cuando la barra está colapsada */}
+            <div className="opacity-100 group-hover:opacity-0 transition-opacity duration-300">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </div>
 
+            {/* Texto visible cuando la barra está expandida */}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col ml-0 group-hover:ml-3 whitespace-nowrap overflow-hidden">
+              <p className="text-sm font-medium">Usuario</p>
+              <p className="text-xs text-gray-500">admin@frakto.com</p>
+            </div>
+          </div>
+        </div>
       </aside>
 
       {/* Main Content */}

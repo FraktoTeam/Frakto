@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+// use global `jest` provided by the test environment
 
 // Shared mock object for utils client (mock both path styles to be safe)
 const mockClient = {
@@ -99,35 +99,58 @@ describe('gastoFijoService - unit', () => {
   });
 
   it('updateGastoFijo devuelve success true o false según error', async () => {
-  const updateChain: any = {
+    // Mock the full chain: update().eq().select().single()
+    const updateChain: any = {
       update: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnValue(Promise.resolve({ data: null, error: null })),
+      eq: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn().mockReturnValue(Promise.resolve({ data: { id_gasto: 1, cartera_nombre: 'Personal', id_usuario: 1 }, error: null })),
     };
     (createClient.from as jest.Mock).mockReturnValue(updateChain);
 
     const ok = await updateGastoFijo(1, { importe: 99 });
     expect(updateChain.update).toHaveBeenCalledWith({ importe: 99 });
+    expect(updateChain.eq).toHaveBeenCalledWith('id_gasto', 1);
     expect(ok.success).toBe(true);
 
-    // error
-    updateChain.eq.mockResolvedValueOnce({ data: null, error: { message: 'update fail' } });
+    // error path: single resolves to an error
+    updateChain.single.mockResolvedValueOnce({ data: null, error: { message: 'update fail' } });
     const nok = await updateGastoFijo(1, { importe: 10 });
     expect(nok.success).toBe(false);
     expect(nok.error).toMatch(/update fail/);
   });
 
   it('deleteGastoFijo devuelve éxito según respuesta', async () => {
-  const delChain: any = {
-      delete: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnValue(Promise.resolve({ data: null, error: null })),
+    // First call: select to fetch the old record
+    const selectChain: any = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      single: jest.fn().mockReturnValue(Promise.resolve({ data: { cartera_nombre: 'Personal', id_usuario: 1 }, error: null })),
     };
-    (createClient.from as jest.Mock).mockReturnValue(delChain);
+
+    // Second call: delete chain which resolves on eq()
+    const deleteChain: any = {
+      delete: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockImplementation(() => Promise.resolve({ data: null, error: null })),
+    };
+
+    (createClient.from as jest.Mock)
+      .mockReturnValueOnce(selectChain)
+      .mockReturnValueOnce(deleteChain);
 
     const ok = await deleteGastoFijo(5);
-    expect(delChain.delete).toHaveBeenCalled();
+    expect(selectChain.select).toHaveBeenCalled();
+    expect(deleteChain.delete).toHaveBeenCalled();
     expect(ok.success).toBe(true);
 
-    delChain.eq.mockResolvedValueOnce({ data: null, error: { message: 'del fail' } });
+    // simulate delete error on second call
+    (createClient.from as jest.Mock)
+      .mockReturnValueOnce(selectChain)
+      .mockReturnValueOnce({
+        delete: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockImplementation(() => Promise.resolve({ data: null, error: { message: 'del fail' } })),
+      } as any);
+
     const nok = await deleteGastoFijo(5);
     expect(nok.success).toBe(false);
     expect(nok.error).toMatch(/del fail/);

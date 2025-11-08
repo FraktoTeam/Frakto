@@ -26,7 +26,6 @@ export default function AlertBanner({ userId }: { userId: number | null }) {
     if (!userId) return;
 
     let mounted = true;
-    console.log("🟢 AlertBanner montado para userId:", userId);
 
     // Cargar alertas iniciales
     (async () => {
@@ -42,9 +41,7 @@ export default function AlertBanner({ userId }: { userId: number | null }) {
 
     // Suscribirse a realtime
     const channel = subscribeAlertasUsuario(userId, (payload) => {
-      console.log("📡 Evento recibido de Supabase:", payload);
       if (payload?.eventType === "INSERT" || payload?.eventType === "UPDATE") {
-        console.log("⚠️ Nueva alerta detectada:", payload.new);
         const newAlert = payload.new as Alerta;
         setAlerta(newAlert);
 
@@ -80,7 +77,6 @@ export default function AlertBanner({ userId }: { userId: number | null }) {
 
   // 👇 función para cerrar manualmente
   const handleClose = () => {
-    console.log("❌ Alerta cerrada manualmente");
     setAlerta(null);
   };
 

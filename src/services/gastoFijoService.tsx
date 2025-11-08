@@ -90,35 +90,103 @@ export async function createGastoFijo(gasto: GastoFijo): Promise<{ data: GastoFi
 /**
  * Actualiza un gasto fijo existente con los campos proporcionados.
  *
+ * Comportamiento:
+ * - Realiza un `update` en la tabla `gasto_fijo` por `id_gasto` y devuelve
+ *   el registro resultante (a través de la llamada a `.select().single()`).
+ * - Si la operación es exitosa y el registro resultante contiene `cartera_nombre`
+ *   e `id_usuario`, se invoca `evaluarRiesgoGastoFijo(cartera_nombre, id_usuario)`
+ *   para recalcular métricas dependientes (efecto colateral importante).
+ * - No lanza excepciones en el flujo normal: en caso de error devuelve
+ *   `{ success: false, error: <mensaje> }`.
+ *
+ * Notas de uso:
+ * - `fields` puede contener solo los campos que se desean actualizar.
+ * - El llamador puede confiar en la re-evaluación del riesgo cuando el
+ *   registro actualizado incluya `cartera_nombre` e `id_usuario`.
+ *
  * @param id_gasto - Id del gasto a actualizar
  * @param fields - Campos parciales a actualizar (Partial<GastoFijo>)
  * @returns Promise<{ success: boolean; error: string | null }>
  */
-export async function updateGastoFijo(id_gasto: number, fields: Partial<GastoFijo>): Promise<{ success: boolean; error: string | null }> {
-  const { error } = await createClient
+export async function updateGastoFijo(
+  id_gasto: number,
+  fields: Partial<GastoFijo>
+): Promise<{ success: boolean; error: string | null }> {
+  const { data, error } = await createClient
     .from("gasto_fijo")
     .update(fields)
-    .eq("id_gasto", id_gasto);
+    .eq("id_gasto", id_gasto)
+    .select()
+    .single();
 
   if (error) return { success: false, error: error.message };
+
+  // ⚙️ Si tenemos cartera y usuario, reevaluamos el riesgo
+  if (data?.cartera_nombre && data?.id_usuario) {
+    await evaluarRiesgoGastoFijo(data.cartera_nombre, data.id_usuario);
+  }
+
   return { success: true, error: null };
 }
 
+
 /**
- * Elimina un gasto fijo por su id.
+ * Elimina un gasto fijo por su id y reevalúa el riesgo de la cartera afectada.
+ *
+ * Flujo:
+ * 1. Recupera (`select`) el registro existente para obtener `cartera_nombre`
+ *    e `id_usuario` (necesarios para la re-evaluación posterior).
+ * 2. Si la recuperación falla, devuelve `{ success: false, error }` sin
+ *    intentar eliminar.
+ * 3. Elimina el registro (`delete().eq('id_gasto', id_gasto)`).
+ * 4. Si la eliminación es exitosa y se obtuvo previamente `cartera_nombre` e
+ *    `id_usuario`, invoca `evaluarRiesgoGastoFijo(cartera_nombre, id_usuario)`.
+ * 5. Devuelve `{ success: true, error: null }` en caso de éxito, o la forma
+ *    `{ success: false, error: <mensaje> }` en caso de fallo.
+ *
+ * Consideraciones:
+ * - El método captura excepciones y devuelve el error en el campo `error`.
+ * - No lanza el error directamente al llamador (el llamador debe inspeccionar
+ *   la propiedad `success`).
  *
  * @param id_gasto - Id del gasto a eliminar
  * @returns Promise<{ success: boolean; error: string | null }>
  */
-export async function deleteGastoFijo(id_gasto: number): Promise<{ success: boolean; error: string | null }> {
-  const { error } = await createClient
-    .from("gasto_fijo")
-    .delete()
-    .eq("id_gasto", id_gasto);
+export async function deleteGastoFijo(
+  id_gasto: number
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { data: old, error: fetchError } = await createClient
+      .from("gasto_fijo")
+      .select("cartera_nombre, id_usuario")
+      .eq("id_gasto", id_gasto)
+      .single();
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, error: null };
+    if (fetchError) {
+      console.error("Error obteniendo gasto fijo antes de eliminar:", fetchError.message);
+      return { success: false, error: fetchError.message };
+    }
+
+    const { error: deleteError } = await createClient
+      .from("gasto_fijo")
+      .delete()
+      .eq("id_gasto", id_gasto);
+
+    if (deleteError) {
+      console.error("Error eliminando gasto fijo:", deleteError.message);
+      return { success: false, error: deleteError.message };
+    }
+
+    if (old?.cartera_nombre && old?.id_usuario) {
+      await evaluarRiesgoGastoFijo(old.cartera_nombre, old.id_usuario);
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
+
 
 /** Evalúa el riesgo de gasto fijo para una cartera y usuario.
  * @param cartera_nombre - Nombre de la cartera
