@@ -16,6 +16,9 @@ interface PortfolioItem {
   id: string;          // usaremos el nombre como id (clave natural)
   name: string;        // nombre cartera
   trend?: Trend;
+  saldo?: number;      // saldo actual
+  ingresos?: Ingreso[]; // ingresos asociados
+  gastos?: Gasto[];     // gastos asociados
 }
 
 interface Ingreso {
@@ -81,7 +84,9 @@ export function Reports({ userId }: ReportsProps) {
   const [availableMonth, setAvailableMonth] = useState<string>("");
   const [availableYear, setAvailableYear] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
-
+  const [portfolioData, setPortfolioData] = useState<
+    { cartera: string; saldo: number; ingresos: Ingreso[]; gastos: Gasto[] }[]
+  >([]);
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>([]);
   const [rows, setRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -103,7 +108,7 @@ export function Reports({ userId }: ReportsProps) {
         const supa = createClient;
         const { data, error } = await supa
           .from("cartera")
-          .select("nombre")
+          .select("nombre, saldo")
           .eq("id_usuario", userId)
           .order("nombre", { ascending: true });
 
@@ -113,6 +118,7 @@ export function Reports({ userId }: ReportsProps) {
         const list: PortfolioItem[] = (data ?? []).map((r: any) => ({
           id: r.nombre,
           name: r.nombre,
+          saldo: r.saldo,
         }));
         setPortfolios(list);
       } catch (e: any) {
@@ -140,6 +146,7 @@ export function Reports({ userId }: ReportsProps) {
         // si aún no hay carteras, no intentes
         if (portfoliosToFetch.length === 0) {
           setRows([]);
+          if (mounted) setPortfolioData([]);
           setLoading(false);
           return;
         }
@@ -154,6 +161,21 @@ export function Reports({ userId }: ReportsProps) {
             return { cartera, ingresos: ing as Ingreso[], gastos: gas as Gasto[] };
           })
         );
+
+        // Guarda los pack completos para usarlos después
+        if (mounted) {
+          // enlaza saldo desde `portfolios`
+          const packed = allResults.map(p => {
+            const port = portfolios.find(x => x.name === p.cartera);
+            return {
+              cartera: p.cartera,
+              saldo: port ? Number((port as any).saldo ?? 0) : 0,
+              ingresos: p.ingresos,
+              gastos: p.gastos,
+            };
+          });
+          setPortfolioData(packed);
+        }
 
         // Unificamos a filas TxRow y filtramos por fecha del mes pasado
         const inMonth = (d: string) => d >= firstStr && d <= lastStr;
@@ -208,6 +230,33 @@ export function Reports({ userId }: ReportsProps) {
     const totalIncome  = incomeTransactions.reduce((s, r) => s + r.amount, 0);
     const totalExpense = expenseTransactions.reduce((s, r) => s + r.amount, 0);
 
+    // Tomamos el saldo actual de cada cartera y revertimos los movimientos del mes
+    const { firstStr } = startEndOfLastMonth(); // fecha inicio mes (ej. "2025-10-01")
+    const nowStr = new Date().toISOString().slice(0, 10); // fecha actual (ISO corto)
+
+    let totalInitialBalance = 0;
+
+    const portfoliosToUse =
+    selectedPortfolio === "all"
+      ? portfolios
+      : portfolios.filter(p => p.id === selectedPortfolio || p.name === selectedPortfolio);
+
+    for (const cartera of portfoliosToUse) {
+      const ingresos = rows.filter(r => r.portfolioId === cartera.name && r.type === "income");
+      const gastos = rows.filter(r => r.portfolioId === cartera.name && r.type === "expense");
+
+      const ingDesdeInicio = ingresos.reduce((s, i) => s + i.amount, 0);
+      const gasDesdeInicio = gastos.reduce((s, g) => s + g.amount, 0);
+
+      const currentBalance = cartera.saldo ?? 0;
+
+      const initial = currentBalance - ingDesdeInicio + gasDesdeInicio;
+      console.log(
+        `Cartera ${cartera.name}: saldo actual ${currentBalance}, ingresos ${ingDesdeInicio}, gastos ${gasDesdeInicio} => inicial ${initial}`
+      );
+      totalInitialBalance += initial;
+    }
+
     // Agrupar gastos por categoría
     const expensesByCategory: ReportData["expensesByCategory"] = [];
     for (const r of expenseTransactions) {
@@ -226,9 +275,10 @@ export function Reports({ userId }: ReportsProps) {
     ];
 
     // Balance inicial simulado (si quieres, cámbialo a un select de 'cartera.saldo')
-    const initialBalance = 40000;
+    const initialBalance = totalInitialBalance;
     const finalBalance = initialBalance + totalIncome - totalExpense;
     const netResult = totalIncome - totalExpense;
+    console.log(`Reporte: inicial ${initialBalance}, ingresos ${totalIncome}, gastos ${totalExpense}, final ${finalBalance}`);
 
     return {
       initialBalance,
@@ -242,7 +292,7 @@ export function Reports({ userId }: ReportsProps) {
     };
   }, [rows]);
 
-  // PDF (import dinámico, Next.js friendly)
+// PDF (import dinámico, Next.js friendly)
   const generatePDF = async () => {
     setIsGenerating(true);
     try {
@@ -255,16 +305,15 @@ export function Reports({ userId }: ReportsProps) {
       const doc = new jsPDF();
 
       const portfolioName =
-        selectedPortfolio === "all"
-          ? "Todas"
-          : selectedPortfolio;
-
-      const userName = "Usuario Fraktp";
+        selectedPortfolio === "all" ? "Todas" : selectedPortfolio;
+      const userName = "Usuario Frakto";
       const now = new Date();
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const reportPeriod = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
+      const reportPeriod = `${lastMonth.getFullYear()}-${String(
+        lastMonth.getMonth() + 1
+      ).padStart(2, "0")}`;
 
-      // PORTADA
+      // ---------- PORTADA ----------
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
       doc.text("Reporte Financiero Mensual", 105, 60, { align: "center" });
@@ -273,22 +322,27 @@ export function Reports({ userId }: ReportsProps) {
       doc.setFont("helvetica", "normal");
       doc.text(`Usuario: ${userName}`, 105, 80, { align: "center" });
       doc.text(`Cartera(s): ${portfolioName}`, 105, 90, { align: "center" });
-      doc.text(`Periodo: ${availableMonth} ${availableYear}`, 105, 100, { align: "center" });
+      doc.text(`Periodo: ${availableMonth} ${availableYear}`, 105, 100, {
+        align: "center",
+      });
 
-      // RESUMEN EJECUTIVO
+      // ---------- RESUMEN EJECUTIVO ----------
       doc.addPage();
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.text("Resumen Ejecutivo", 20, 20);
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
 
       const summaryData = [
         ["Balance Inicial", toCurrency(reportData.initialBalance)],
-        ["Total Ingresos",  toCurrency(reportData.totalIncome)],
-        ["Total Gastos",    toCurrency(reportData.totalExpense)],
-        ["Balance Final",   toCurrency(reportData.finalBalance)],
-        ["Resultado Neto",  `${reportData.netResult >= 0 ? "+" : ""}${toCurrency(reportData.netResult)}`],
+        ["Total Ingresos", toCurrency(reportData.totalIncome)],
+        ["Total Gastos", toCurrency(reportData.totalExpense)],
+        ["Balance Final", toCurrency(reportData.finalBalance)],
+        [
+          "Resultado Neto",
+          `${reportData.netResult >= 0 ? "+" : ""}${toCurrency(
+            reportData.netResult
+          )}`,
+        ],
       ];
 
       autoTable(doc, {
@@ -296,11 +350,74 @@ export function Reports({ userId }: ReportsProps) {
         head: [["Concepto", "Importe"]],
         body: summaryData,
         theme: "grid",
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+        headStyles: {
+          fillColor: [34, 197, 94],
+          textColor: 255,
+          fontStyle: "bold",
+        },
         styles: { fontSize: 11, font: "helvetica" },
       });
 
-      // DETALLE DE INGRESOS (usamos rows reales)
+      // ---------- INDICADORES CLAVE (KPIs) ----------
+      const daysInMonth = new Date(
+        lastMonth.getFullYear(),
+        lastMonth.getMonth() + 1,
+        0
+      ).getDate();
+      const savingsRate = reportData.totalIncome
+        ? ((reportData.totalIncome - reportData.totalExpense) /
+            reportData.totalIncome) *
+          100
+        : 0;
+      const dailyExpense = reportData.totalExpense / daysInMonth;
+      const dailyIncome = reportData.totalIncome / daysInMonth;
+      const lastY = (doc as any).lastAutoTable?.finalY || 40;
+
+      autoTable(doc, {
+        startY: lastY + 10,
+        head: [["Indicador", "Valor"]],
+        body: [
+          ["Tasa de Ahorro", `${savingsRate.toFixed(1)} %`],
+          ["Gasto Diario Promedio", `${dailyExpense.toFixed(2)} €`],
+          ["Ingreso Diario Promedio", `${dailyIncome.toFixed(2)} €`],
+        ],
+        theme: "striped",
+        headStyles: {
+          fillColor: [75, 85, 99],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+      });
+
+      // ---------- GASTOS POR CATEGORÍA + PORCENTAJE ----------
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.text("Gastos por Categoría", 20, 20);
+
+      const totalExpenseAmount = reportData.expensesByCategory.reduce(
+        (s, e) => s + e.total,
+        0
+      );
+
+      const expenseTableData = reportData.expensesByCategory.map((e) => {
+        const percent = totalExpenseAmount
+          ? (e.total / totalExpenseAmount) * 100
+          : 0;
+        return [e.category, e.count, `${e.total.toFixed(2)} €`, `${percent.toFixed(1)} %`];
+      });
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["Categoría", "Movimientos", "Total (€)", "% del Gasto"]],
+        body: expenseTableData,
+        theme: "grid",
+        headStyles: {
+          fillColor: [34, 197, 94],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        styles: { fontSize: 10 },
+      });
       doc.addPage();
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
@@ -317,27 +434,6 @@ export function Reports({ userId }: ReportsProps) {
         startY: 30,
         head: [["Fecha", "Cartera", "Descripción", "Importe (€)"]],
         body: incomeTableData,
-        theme: "striped",
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        styles: { fontSize: 10, font: "helvetica" },
-      });
-
-      // GASTOS POR CATEGORÍA
-      doc.addPage();
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text("Gastos por Categoría", 20, 20);
-
-      const expenseTableData = reportData.expensesByCategory.map(e => [
-        e.category,
-        String(e.count),
-        `${e.total.toFixed(2)} €`,
-      ]);
-
-      autoTable(doc, {
-        startY: 30,
-        head: [["Categoría", "Número de Movimientos", "Total (€)"]],
-        body: expenseTableData,
         theme: "striped",
         headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
         styles: { fontSize: 10, font: "helvetica" },
@@ -365,30 +461,66 @@ export function Reports({ userId }: ReportsProps) {
         styles: { fontSize: 10, font: "helvetica" },
       });
 
-      // DISTRIBUCIÓN DE GASTOS
+      // ---------- RECOMENDACIONES AUTOMÁTICAS ----------
       doc.addPage();
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("Distribución de Gastos por Categoría", 20, 20);
+      doc.text("Observaciones y Recomendaciones", 20, 20);
+      doc.setLineWidth(0.5);
+      doc.line(20, 23, 190, 23);
 
-      const totalExpenseAmount = reportData.expensesByCategory.reduce((s, e) => s + e.total, 0);
-      const distributionData = reportData.expensesByCategory.map(e => [
-        e.category,
-        `${e.total.toFixed(2)} €`,
-        `${totalExpenseAmount ? ((e.total / totalExpenseAmount) * 100).toFixed(1) : "0.0"}%`,
-      ]);
+      // ✅ Declaramos la variable
+      const insights: string[] = [];
 
+      if (savingsRate < 10) {
+        insights.push(
+          "⚠️ Tu tasa de ahorro es baja. Considera reducir gastos variables."
+        );
+      }
+      if (reportData.totalExpense > reportData.totalIncome) {
+        insights.push("🚨 Gastas más de lo que ingresas este mes.");
+      }
+      if (reportData.expensesByCategory.some((e) => e.total > reportData.totalIncome * 0.2)) {
+        insights.push(
+          "💡 Una o más categorías superan el 20% de tus ingresos. Revisa su impacto."
+        );
+      }
+      if (insights.length === 0) {
+        insights.push("✅ Tu balance es saludable. Buen trabajo este mes.");
+      }
+
+      // Ahora ya podemos usar 'insights' en autoTable
       autoTable(doc, {
         startY: 30,
-        head: [["Categoría", "Total (€)", "Porcentaje"]],
-        body: distributionData,
+        head: [["Tipo", "Recomendación"]],
+        body: insights.map((i) => [
+          i.startsWith("✅") ? "Bueno" : i.startsWith("⚠️") ? "Advertencia" : "Alerta",
+          i.replace(/^.\s/, ""),
+        ]),
         theme: "striped",
+        styles: { fontSize: 11, cellPadding: 4, font: "helvetica" },
         headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        styles: { fontSize: 10, font: "helvetica" },
+        alternateRowStyles: { fillColor: [245, 250, 255] },
       });
 
-      // Guardar
-      const fileName = `reporte_usuario_fraktp_${portfolioName.toLowerCase()}_${reportPeriod}.pdf`;
+
+
+      // ---------- PIE DE PÁGINA ----------
+      const totalPages = (doc as any).getNumberOfPages();
+      const pageCount = typeof totalPages === "function" ? totalPages() : totalPages;
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(9);
+        doc.text(
+          `Página ${i} de ${pageCount} · ${availableMonth} ${availableYear}`,
+          105,
+          290,
+          { align: "center" }
+        );
+      }
+
+      // ---------- GUARDAR ----------
+      const fileName = `reporte_usuario_frakto_${portfolioName.toLowerCase()}_${reportPeriod}.pdf`;
       doc.save(fileName);
     } catch (error) {
       console.error("Error generando PDF:", error);
@@ -397,6 +529,7 @@ export function Reports({ userId }: ReportsProps) {
       setIsGenerating(false);
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -479,7 +612,7 @@ export function Reports({ userId }: ReportsProps) {
             <p className="text-sm text-gray-700">
               <span className="font-bold">Nota:</span> Se descargará un PDF con datos reales
               ({availableMonth} {availableYear}). Formato:
-              <code className="bg-gray-200 px-1 rounded">reporte_usuario_fraktp_[cartera]_[YYYY-MM].pdf</code>
+              <code className="bg-gray-200 px-1 rounded">reporte_usuario_frakto_[cartera]_[YYYY-MM].pdf</code>
             </p>
           </div>
         </CardContent>
