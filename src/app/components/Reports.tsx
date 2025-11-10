@@ -220,6 +220,11 @@ export function Reports({ userId }: ReportsProps) {
     };
 
     load();
+
+    // Evita actualizaciones de estado si el componente se desmonta
+    return () => {
+      mounted = false;
+    };
   }, [userId, selectedPortfolio, portfolios]);
 
   // Construye los agregados para el reporte a partir de rows

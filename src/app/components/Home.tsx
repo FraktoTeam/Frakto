@@ -8,8 +8,6 @@ import { Button } from "./ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
 import { Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
 import { WalletMinimal, Home as HomeIcon, BarChart2, Settings, CreditCard } from "lucide-react";
-import { getFirebaseApp } from "../../utils/firebaseClient";
-import { solicitarPermisoYToken, escucharMensajes } from "@/utils/firebaseMessaging";
 
 
 interface HomeProps {
@@ -23,20 +21,7 @@ export function Home({ onSelectPortfolio }: HomeProps) {
   const [loading, setLoading] = useState(true);
   const [movements, setMovements] = useState<any[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(true);
-  const [userId, setUserId] = useState(1)
-  useEffect(() => {
-    try {
-      const app = getFirebaseApp();
-      console.log("✅ Firebase inicializado:", app.name);
-    } catch (e) {
-      console.error("⛔ No se pudo inicializar Firebase:", e);
-    }
-  }, []);
-
-  useEffect(() => {
-  solicitarPermisoYToken();
-  escucharMensajes();
-}, []);
+  const [userId, setUserId] = useState(1);
 
 
   useEffect(() => {
