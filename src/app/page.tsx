@@ -5,9 +5,10 @@ import { Home } from "./components/Home";
 import { Portfolio } from "./components/Portfolio";
 import { FixedExpenses } from "./components/FixedExpenses";
 import AlertBanner from "./components/AlertBanner";
-import { Home as HomeIcon, Briefcase, BarChart3, Settings, Repeat, Mail, FileText } from "lucide-react";
+import { Home as HomeIcon, Briefcase, BarChart3, Settings, Repeat, Mail, FileText, CalendarIcon } from "lucide-react";
 import Inbox from "./components/Inbox"; // o la ruta donde lo guardaste
 import { Reports } from "./components/Reports";
+import { Calendar } from "./components/Calendar";
 
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
     { id: "fixexpenses",label: "Gastos Fijos", icon: Repeat },
     { id: "analytics",  label: "Análisis",     icon: BarChart3 },
     { id: "reports",       label: "Reportes",     icon: FileText },
+    { id: "calendar", label: "Calendario", icon: CalendarIcon },
     { id: "settings",   label: "Configuración",icon: Settings },
   ];
 
@@ -68,6 +70,9 @@ export default function App() {
             </div>
           </div>
         );
+        case "calendar":
+           return <Calendar />;
+
       case "settings":
         return (
           <div className="space-y-6">
