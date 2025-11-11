@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Label } from "./ui/label";
 import { FileText, Download } from "lucide-react";
 import { getIngresos, getGastos } from "../../services/transaccionService";
+import { Chart, PieController, ArcElement, Tooltip, Legend } from "chart.js";
+Chart.register(PieController, ArcElement, Tooltip, Legend);
+
 
 import { createClient } from "@/utils/client"; // para leer carteras si no tienes service de carteras
 
@@ -55,6 +58,7 @@ interface ReportData {
   finalBalance: number;
   netResult: number;
   incomeTransactions: TxRow[];
+  expenseTransactions: TxRow[];
   expensesByCategory: { category: string; count: number; total: number }[];
   weeklyData: { week: string; income: number; expense: number }[];
 }
@@ -63,10 +67,17 @@ function startEndOfLastMonth() {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const last  = new Date(now.getFullYear(), now.getMonth(), 0);
-  // strings yyyy-mm-dd
-  const fmt = (d: Date) => d.toISOString().slice(0,10);
+
+  const fmt = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0"); // mes 1-12
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   return { first, last, firstStr: fmt(first), lastStr: fmt(last) };
 }
+
 
 const monthNames = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -272,12 +283,39 @@ export function Reports({ userId }: ReportsProps) {
     }
 
     // Datos semanales (aprox. 4 semanas)
+    const startOfMonth = new Date(firstStr); // ej. 2025-10-01
+
+
+    const endOfMonth = new Date(
+      startOfMonth.getFullYear(),
+      startOfMonth.getMonth() + 1,
+      0
+    );
+    const daysInMonth = endOfMonth.getDate();
+    const weekLength = Math.ceil(daysInMonth / 4); // dividir mes en 4 semanas aproximadas
+
     const weeklyData = [
-      { week: "Semana 1", income: totalIncome * 0.30, expense: totalExpense * 0.25 },
-      { week: "Semana 2", income: totalIncome * 0.20, expense: totalExpense * 0.35 },
-      { week: "Semana 3", income: totalIncome * 0.25, expense: totalExpense * 0.20 },
-      { week: "Semana 4", income: totalIncome * 0.25, expense: totalExpense * 0.20 },
+      { week: "Semana 1", income: 0, expense: 0 },
+      { week: "Semana 2", income: 0, expense: 0 },
+      { week: "Semana 3", income: 0, expense: 0 },
+      { week: "Semana 4", income: 0, expense: 0 },
     ];
+
+    function getWeekIndex(dateStr: string) {
+      const date = new Date(dateStr);
+      const dayOfMonth = date.getDate();
+      return Math.min(Math.floor((dayOfMonth - 1) / weekLength), 3); // 0..3
+    }
+
+    for (const inc of incomeTransactions) {
+      const idx = getWeekIndex(inc.date);
+      weeklyData[idx].income += inc.amount;
+    }
+
+    for (const exp of expenseTransactions) {
+      const idx = getWeekIndex(exp.date);
+      weeklyData[idx].expense += exp.amount;
+    }
 
     // Balance inicial simulado (si quieres, cámbialo a un select de 'cartera.saldo')
     const initialBalance = totalInitialBalance;
@@ -292,13 +330,56 @@ export function Reports({ userId }: ReportsProps) {
       finalBalance,
       netResult,
       incomeTransactions,
+      expenseTransactions,
       expensesByCategory,
       weeklyData,
     };
   }, [rows]);
 
+async function generarPieChart(categories: string[], percentages: number[]): Promise<string> {
+  return new Promise((resolve) => {
+    // Canvas oculto en DOM
+    const canvas = document.createElement("canvas");
+    canvas.width = 1000;
+    canvas.height = 1000;
+    document.body.appendChild(canvas); // necesario para que Chart.js renderice correctamente
+
+    const ctx = canvas.getContext("2d")!;
+    const chart = new Chart(ctx, {
+      type: "pie",
+      data: {
+        labels: categories,
+        datasets: [{
+          data: percentages,
+          backgroundColor: [
+            "#22c55e",
+            "#3b82f6",
+            "#f97316",
+            "#ef4444",
+            "#a855f7",
+            "#facc15",
+          ],
+        }],
+      },
+      options: {
+        animation: {
+          onComplete: () => {
+            // Cuando termine la animación, extraer base64
+            const base64 = canvas.toDataURL("image/png");
+            chart.destroy();
+            canvas.remove();
+            resolve(base64);
+          },
+        },
+        plugins: { legend: { position: "right", labels: { font: { size: 50, weight: "bold" } } }, tooltip: { enabled: true } },
+      },
+    });
+  });
+}
+
 // PDF (import dinámico, Next.js friendly)
   const generatePDF = async () => {
+    console.log("Generando PDF con datos:", reportData);
     setIsGenerating(true);
     try {
       const [{ default: jsPDF }, autoTableMod] = await Promise.all([
@@ -321,8 +402,10 @@ export function Reports({ userId }: ReportsProps) {
       // ---------- PORTADA ----------
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
+      doc.setTextColor("#00AF03");
       doc.text("Reporte Financiero Mensual", 105, 60, { align: "center" });
-
+     
+      doc.setTextColor("#000000ff");
       doc.setFontSize(14);
       doc.setFont("helvetica", "normal");
       doc.text(`Usuario: ${userName}`, 105, 80, { align: "center" });
@@ -330,12 +413,24 @@ export function Reports({ userId }: ReportsProps) {
       doc.text(`Periodo: ${availableMonth} ${availableYear}`, 105, 100, {
         align: "center",
       });
+       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const i = new Image();
+          i.src = "/logo.png";
+          i.onload = () => {
+            doc.addImage(i, "PNG", 32, 70, 150, 150);
+            resolve(i);
+          };
+          i.onerror = (err) => reject(err);
+        });
 
       // ---------- RESUMEN EJECUTIVO ----------
       doc.addPage();
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("Resumen Ejecutivo", 20, 20);
+      doc.text("Resumen Mensual General", 20, 20);
+      doc.setLineWidth(0.5);
+      doc.line(20, 23, 190, 23);
+      
 
       const summaryData = [
         ["Balance Inicial", toCurrency(reportData.initialBalance)],
@@ -354,7 +449,7 @@ export function Reports({ userId }: ReportsProps) {
         startY: 30,
         head: [["Concepto", "Importe"]],
         body: summaryData,
-        theme: "grid",
+        theme: "striped",
         headStyles: {
           fillColor: [34, 197, 94],
           textColor: 255,
@@ -394,10 +489,64 @@ export function Reports({ userId }: ReportsProps) {
         },
       });
 
+      // ---------- LISTADO DE INGRESOS ----------
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Listado de Ingresos", 20, 20);
+      doc.setLineWidth(0.5);
+      doc.line(20, 23, 190, 23);
+      
+
+      const incomeTableData = reportData.incomeTransactions.map(t => [
+        t.date,
+        t.portfolioId, 
+        t.description,
+        `${t.amount.toFixed(2)} €`,
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["Fecha", "Cartera", "Descripción", "Importe (€)"]],
+        body: incomeTableData,
+        theme: "striped",
+        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+        styles: { fontSize: 10, font: "helvetica" },
+      });
+
+      // ---------- LISTADO DE GASTOS ----------
+      doc.addPage();
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Listado de Gastos", 20, 20);
+      doc.setLineWidth(0.5);
+      doc.line(20, 23, 190, 23);
+      
+
+      const expenseTableDataList = reportData.expenseTransactions.map(t => [
+        t.date,
+        t.portfolioId,
+        t.description,
+        `${t.amount.toFixed(2)} €`,
+        t.category,
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["Fecha", "Cartera", "Descripción", "Importe (€)", "Categoría"]],
+        body: expenseTableDataList,
+        theme: "striped",
+        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+        styles: { fontSize: 10, font: "helvetica" },
+      });
+
       // ---------- GASTOS POR CATEGORÍA + PORCENTAJE ----------
       doc.addPage();
       doc.setFontSize(18);
       doc.text("Gastos por Categoría", 20, 20);
+      doc.setLineWidth(0.5);
+      doc.line(20, 23, 190, 23);
+      
 
       const totalExpenseAmount = reportData.expensesByCategory.reduce(
         (s, e) => s + e.total,
@@ -415,7 +564,7 @@ export function Reports({ userId }: ReportsProps) {
         startY: 30,
         head: [["Categoría", "Movimientos", "Total (€)", "% del Gasto"]],
         body: expenseTableData,
-        theme: "grid",
+        theme: "striped",
         headStyles: {
           fillColor: [34, 197, 94],
           textColor: 255,
@@ -423,32 +572,34 @@ export function Reports({ userId }: ReportsProps) {
         },
         styles: { fontSize: 10 },
       });
-      doc.addPage();
-      doc.setFontSize(18);
+
+      const startY = (doc as any).lastAutoTable?.finalY || 30;
+
+      // 2️⃣ Colocar el título del gráfico
+      const titleY = startY + 20; // margen de 10mm
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("Detalle de Ingresos", 20, 20);
-
-      const incomeTableData = reportData.incomeTransactions.map(t => [
-        t.date,
-        t.portfolioId,
-        t.description,
-        `${t.amount.toFixed(2)} €`,
-      ]);
-
-      autoTable(doc, {
-        startY: 30,
-        head: [["Fecha", "Cartera", "Descripción", "Importe (€)"]],
-        body: incomeTableData,
-        theme: "striped",
-        headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
-        styles: { fontSize: 10, font: "helvetica" },
+      doc.text("Gráfico de Gastos por Categoría", 20, titleY);
+      const categories = reportData.expensesByCategory.map(e => e.category);
+      const percentages = reportData.expensesByCategory.map(e => {
+        const total = reportData.expensesByCategory.reduce((s, e) => s + e.total, 0);
+        return total ? (e.total / total) * 100 : 0;
       });
+      const pieDataUrl = await generarPieChart(categories, percentages);
 
+      const chartY = titleY + 10; // 10mm de separación
+      const x = (doc.internal.pageSize.getWidth() - 100) / 2;
+
+      doc.addImage(pieDataUrl, "PNG", x, chartY, 100, 100);
+      
+      
       // COMPARACIÓN SEMANAL (tabla)
       doc.addPage();
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.text("Comparación Ingresos vs Gastos por Semana", 20, 20);
+      doc.setLineWidth(0.5);
+      doc.line(20, 23, 190, 23);
 
       const weeklyTableData = reportData.weeklyData.map(w => [
         w.week,
@@ -461,7 +612,7 @@ export function Reports({ userId }: ReportsProps) {
         startY: 30,
         head: [["Semana", "Ingresos (€)", "Gastos (€)", "Diferencia (€)"]],
         body: weeklyTableData,
-        theme: "grid",
+        theme: "striped",
         headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
         styles: { fontSize: 10, font: "helvetica" },
       });
