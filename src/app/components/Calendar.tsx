@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { JSX, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -50,7 +50,7 @@ interface TxRow {
 }
 
 interface FixedExpenseSvc {
-  id_gasto: number;
+  id_gasto?: number;
   cartera_nombre: string;
   id_usuario: number;
   categoria_nombre: string;

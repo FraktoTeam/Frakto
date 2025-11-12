@@ -16,12 +16,6 @@ export default function App() {
   const [previousView, setPreviousView] = useState<string>("home");
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (activeView === "portfolio" && previousView !== "portfolio") {
-      setSelectedPortfolioId(null);
-    }
-  }, [activeView, previousView]);
-
   const handleSelectPortfolio = (portfolioId: number): void => {
     setSelectedPortfolioId(portfolioId);
     setPreviousView(activeView);
