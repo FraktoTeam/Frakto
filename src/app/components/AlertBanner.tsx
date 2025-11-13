@@ -54,7 +54,7 @@ export default function AlertBanner({ userId }: { userId: number | null }) {
 
         if (timerRef.current) window.clearTimeout(timerRef.current);
         // 👇 si no quieres que desaparezca sola, comenta esta línea
-        // timerRef.current = window.setTimeout(() => setAlerta(null), 5000);
+         timerRef.current = window.setTimeout(() => setAlerta(null), 5000);
       }
 
       if (payload?.eventType === "DELETE") {

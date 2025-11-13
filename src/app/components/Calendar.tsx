@@ -428,7 +428,7 @@ export function Calendar({ userId = 1 }: CalendarProps) {
     <div className="space-y-6">
       <div>
         <h2>Calendario Financiero</h2>
-        <p className="text-gray-500">Visualiza tus ingresos y gastos por día (datos reales, como en Reportes)</p>
+        <p className="text-gray-500">Visualiza tus ingresos y gastos por día</p>
       </div>
 
       <Card>
@@ -438,7 +438,7 @@ export function Calendar({ userId = 1 }: CalendarProps) {
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            <CardTitle>{monthNames[selectedMonth]} {selectedYear}</CardTitle>
+            <CardTitle className="text-green-600 text-xl">{monthNames[selectedMonth]} {selectedYear}</CardTitle>
 
             <Button
               variant="outline"
@@ -468,7 +468,7 @@ export function Calendar({ userId = 1 }: CalendarProps) {
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-500 mb-2">Leyenda:</p>
+            <p className="text-xs text-gray-500 mb-2"><strong>Leyenda:</strong></p>
             <div className="flex flex-wrap gap-4 text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-green-600" />
@@ -497,7 +497,7 @@ export function Calendar({ userId = 1 }: CalendarProps) {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="portfolio-filter">Filtrar por cartera</Label>
+              <Label htmlFor="portfolio-filter" className="mb-2">Filtrar por cartera</Label>
               <Select value={selectedPortfolioFilter} onValueChange={setSelectedPortfolioFilter}>
                 <SelectTrigger id="portfolio-filter">
                   <SelectValue placeholder="Todas las carteras" />
@@ -513,7 +513,7 @@ export function Calendar({ userId = 1 }: CalendarProps) {
               </Select>
             </div>
 
-            <Card className="bg-gray-50">
+            <Card className="bg-gray-50 ">
               <CardContent className="pt-6">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
@@ -544,9 +544,9 @@ export function Calendar({ userId = 1 }: CalendarProps) {
                 </div>
               ) : (
                 <ScrollArea className="h-[300px]">
-                  <div className="space-y-3">
+                  <div className="space-y-3 px-2">
                     {combinedList.map((t, idx) => (
-                      <Card key={`${t.date}-${t.portfolioId}-${t.description}-${idx}`}>
+                      <Card key={`${t.date}-${t.portfolioId}-${t.description}-${idx}`} className="w-full max-w-[calc(100%-1rem)] mx-auto">
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -556,9 +556,6 @@ export function Calendar({ userId = 1 }: CalendarProps) {
                                     t.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                                   }`}
                                 >
-
-
-
                                   {t.type === "income" ? "Ingreso" : "Gasto"}
                                 </span>
                                 <span className="text-xs text-gray-500">{t.portfolioId}</span>

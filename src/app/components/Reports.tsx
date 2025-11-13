@@ -652,19 +652,19 @@ async function generarPieChart(categories: string[], percentages: number[]): Pro
 
       if (savingsRate < 10) {
         insights.push(
-          "⚠️ Tu tasa de ahorro es baja. Considera reducir gastos variables."
+          "Tu tasa de ahorro es baja. Considera reducir gastos variables."
         );
       }
       if (reportData.totalExpense > reportData.totalIncome) {
-        insights.push("🚨 Gastas más de lo que ingresas este mes.");
+        insights.push("Gastas más de lo que ingresas este mes.");
       }
       if (reportData.expensesByCategory.some((e) => e.total > reportData.totalIncome * 0.2)) {
         insights.push(
-          "💡 Una o más categorías superan el 20% de tus ingresos. Revisa su impacto."
+          "Una o más categorías superan el 20% de tus ingresos. Revisa su impacto."
         );
       }
       if (insights.length === 0) {
-        insights.push("✅ Tu balance es saludable. Buen trabajo este mes.");
+        insights.push(" es saludable. Buen trabajo este mes.");
       }
 
       // Ahora ya podemos usar 'insights' en autoTable
@@ -672,7 +672,7 @@ async function generarPieChart(categories: string[], percentages: number[]): Pro
         startY: 30,
         head: [["Tipo", "Recomendación"]],
         body: insights.map((i) => [
-          i.startsWith("✅") ? "Bueno" : i.startsWith("⚠️") ? "Advertencia" : "Alerta",
+          i.startsWith("Tu balance") ? "Bueno" : i.startsWith("Tu tasa") ? "Advertencia" : "Alerta",
           i.replace(/^.\s/, ""),
         ]),
         theme: "striped",
@@ -744,7 +744,7 @@ async function generarPieChart(categories: string[], percentages: number[]): Pro
       <div>
         <h2>Reportes Mensuales</h2>
         <p className="text-gray-500">
-          Genera un reporte detallado en formato PDF del mes anterior (datos reales de Supabase)
+          Genera un reporte detallado en formato PDF del mes anterior
         </p>
       </div>
 
