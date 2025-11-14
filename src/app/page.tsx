@@ -6,7 +6,7 @@ import { Portfolio } from "./components/Portfolio";
 import { FixedExpenses } from "./components/FixedExpenses";
 import AlertBanner from "./components/AlertBanner";
 import { Home as HomeIcon, Briefcase, BarChart3, Settings, Repeat, Mail, FileText, CalendarIcon } from "lucide-react";
-import Inbox from "./components/Inbox"; // o la ruta donde lo guardaste
+import Inbox from "./components/Inbox"; 
 import { Reports } from "./components/Reports";
 import { Calendar } from "./components/Calendar";
 

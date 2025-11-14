@@ -5,7 +5,6 @@
 
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 
-// Prevent Radix/Floating UI runtime errors in jsdom (scrollIntoView not available on virtual nodes)
 beforeAll(() => {
   if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.scrollIntoView) {
     // @ts-ignore
@@ -66,6 +65,7 @@ describe("Gastos Fijos - integración ligera", () => {
   (gastoSvc.createGastoFijo as jest.Mock).mockResolvedValue({ data: gasto, error: null });
 
   // diagnostic: ensure the module function is a jest mock
+  // diagnóstico: asegurar que la función del módulo es un mock de jest
   expect(jest.isMockFunction(gastoSvc.createGastoFijo)).toBe(true);
 
   render(<FixedExpenses />);
@@ -73,7 +73,7 @@ describe("Gastos Fijos - integración ligera", () => {
   // Abrir diálogo de creación
   fireEvent.click(await screen.findByText(/Añadir Gasto Fijo/i));
 
-  // Wait for portfolios to be fetched by the component
+  // Esperar a que el componente haya obtenido las carteras
   await waitFor(() => expect(require("@/services/carterasService").getCarteras).toHaveBeenCalled());
 
   // Seleccionar cartera (tests use hidden input to set value reliably)
@@ -125,7 +125,7 @@ describe("Gastos Fijos - integración ligera", () => {
 
     // Esperar al gasto en la UI
     const gastoEl = await screen.findByText(/Luz/);
-    // Use data-testid to click toggle button
+    // Usar data-testid para clicar el botón de alternar
     const toggleBtn = screen.getByTestId('fe-toggle-11');
     fireEvent.click(toggleBtn);
 
@@ -158,7 +158,7 @@ describe("Gastos Fijos - integración ligera", () => {
     const editBtn = screen.getByTestId('fe-edit-12');
     fireEvent.click(editBtn);
 
-    // edit dialog should open; change importe input and click hidden save
+    // El diálogo de edición debería abrirse; cambiar el campo 'importe' y clicar el botón oculto de guardar
     const editAmount = await screen.findByLabelText(/Importe/i, { selector: 'input' });
     fireEvent.change(editAmount, { target: { value: '15' } });
     fireEvent.click(screen.getByTestId('fe-save-edit'));
@@ -196,22 +196,22 @@ describe("Gastos Fijos - integración ligera", () => {
     const deleteBtn = screen.getByTestId('fe-delete-13');
     fireEvent.click(deleteBtn);
 
-    // Try to confirm deletion using the hidden test helper first (deterministic)
+    // Intentar confirmar la eliminación usando primero el helper de test oculto (determinista)
     if (screen.queryByTestId('fe-confirm-delete')) {
       fireEvent.click(screen.getByTestId('fe-confirm-delete'));
     } else {
-      // fallback: attempt to click the visible 'Eliminar' button inside the dialog
+      // Alternativa: intentar clicar el botón visible 'Eliminar' dentro del diálogo
       try {
         const confirmBtn = await screen.findByText(/Eliminar/i);
         fireEvent.click(confirmBtn);
       } catch (e) {
-        // last resort: continue and assert service call below
+        // Último recurso: continuar y afirmar la llamada al servicio más abajo
       }
     }
 
     await waitFor(() => expect(gastoSvc.deleteGastoFijo).toHaveBeenCalledWith(13));
 
-    // la tarjeta debería desaparecer (best-effort)
+    // La tarjeta debería desaparecer (intento razonable)
     try {
       await waitFor(() => expect(screen.queryByText(/Netflix/)).not.toBeInTheDocument());
     } catch (e) {

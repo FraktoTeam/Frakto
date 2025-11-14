@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
-// Mock createClient to return a single cartera
+// Mock de createClient para devolver una única cartera
 jest.mock("@/utils/client", () => {
   const from = jest.fn().mockReturnValue({
     select: () => ({
@@ -19,10 +19,9 @@ jest.mock("@/services/transaccionService", () => ({
   getGastos: jest.fn(),
 }));
 
-// Stub global alert to avoid jsdom not-implemented error during test
 (global as any).alert = jest.fn();
-// Provide top-level mocks for jsPDF and autotable so dynamic imports inside
-// `generatePDF` use them without re-requiring modules (avoids duplicate React)
+// Proporcionar mocks de nivel superior para jsPDF y autotable para que las importaciones
+// dinámicas dentro de `generatePDF` los usen sin recargar módulos (evita duplicar React)
 const saveMock = jest.fn();
 class TopLevelMockJsPDF {
   lastAutoTable: any;
@@ -46,10 +45,10 @@ const topAutoTableMock = jest.fn((doc: any, opts: any) => { (doc as any).lastAut
 jest.mock('jspdf', () => ({ __esModule: true, default: TopLevelMockJsPDF }));
 jest.mock('jspdf-autotable', () => ({ __esModule: true, default: topAutoTableMock }));
 
-// Helper to safely check if console.error was mocked and called
+// Helper para comprobar de forma segura si console.error fue mockeado y llamado
 const consoleErrorCalls = () => Array.isArray((console.error as any)?.mock?.calls) ? (console.error as any).mock.calls.length : 0;
 
-// Mock global Image so Reports' image-loading Promise resolves during tests
+// Mock de `Image` global para que la promesa de carga de imágenes de Reports se resuelva en tests
 const OriginalImage = (global as any).Image;
 (global as any).Image = class {
   onload: any = null;
@@ -60,18 +59,18 @@ const OriginalImage = (global as any).Image;
   }
 } as any;
 
-// Mock chart.js and provide simple canvas fallbacks so Chart-related code
-// (canvas.getContext(), toDataURL, Chart.register, Chart constructor) doesn't
-// blow up under jsdom. These must be in place before importing `Reports`.
+// Mock de chart.js y provisión de fallbacks sencillos para canvas para que el código
+// relacionado con Chart (canvas.getContext(), toDataURL, Chart.register, constructor) no
+// falle en jsdom. Esto debe estar configurado antes de importar `Reports`.
 const OrigGetContext = (HTMLCanvasElement.prototype as any).getContext;
 const OrigToDataURL = (HTMLCanvasElement.prototype as any).toDataURL;
 
-// Lightweight MockChart that triggers animation.onComplete immediately
+// Mock ligero de Chart que dispara animation.onComplete inmediatamente
 class MockChart {
   config: any;
   constructor(ctx: any, config: any) {
     this.config = config;
-    // call onComplete on next tick to emulate Chart.js finishing render
+    // llamar a onComplete en el siguiente tick para emular que Chart.js terminó de renderizar
     Promise.resolve().then(() => {
       try {
         config?.options?.animation?.onComplete?.();
@@ -82,8 +81,8 @@ class MockChart {
   static register() {}
 }
 
-// Use doMock (not hoisted) so MockChart is defined before the factory runs
-// (jest.mock is hoisted and would try to access MockChart too early).
+// Usar doMock (no hoisted) para que MockChart esté definido antes de que se ejecute la fábrica
+// (jest.mock se hoistearía e intentaría acceder a MockChart demasiado pronto).
 jest.doMock('chart.js', () => ({
   __esModule: true,
   Chart: MockChart,
@@ -161,7 +160,7 @@ describe("Reports - integración ligera", () => {
   });
 
   it("genera el PDF usando jsPDF y autotable (mock) y llama a save", async () => {
-  // The top-level mocks provide jspdf/autotable; import Reports after mocks
+  // Los mocks de nivel superior proporcionan jspdf/autotable; importar Reports después de los mocks
   const { Reports: ReportsWithPdf } = await import('../Reports');
 
     // mock transacciones para que haya datos en el reporte
@@ -228,14 +227,14 @@ describe("Reports - integración ligera", () => {
   });
 
   it("usa output('blob') cuando está disponible y crea un ObjectURL", async () => {
-    // make jsPDF output('blob') return a real Blob
+    // hacer que jsPDF output('blob') devuelva un Blob real
     (TopLevelMockJsPDF.prototype as any).output = function (mode: string) {
       if (mode === 'blob') return new Blob(['pdfbytes'], { type: 'application/pdf' });
       if (mode === 'arraybuffer') return new ArrayBuffer(8);
       return null;
     };
 
-    // ensure setTextColor exists so Reports will call it (cover that branch)
+    // asegurar que setTextColor exista para que Reports lo invoque (cubrir esa rama)
     let firstCall = true;
     (TopLevelMockJsPDF.prototype as any).setTextColor = function (..._args: any[]) {
       if (firstCall) { firstCall = false; throw new Error('boom numeric'); }
@@ -271,7 +270,7 @@ describe("Reports - integración ligera", () => {
   });
 
   it("cae al fallback a save cuando output falla", async () => {
-    // make both outputs throw so blob path fails and save() is used
+    // hacer que ambas salidas fallen para que la ruta Blob falle y se use save()
     (TopLevelMockJsPDF.prototype as any).output = function (_mode: string) {
       throw new Error('no output');
     };
@@ -304,7 +303,7 @@ describe("Reports - integración ligera", () => {
   });
 
   it('al generar y fallar la carga de imagen se maneja el error y muestra alert', async () => {
-    // make Image trigger onerror so the image Promise rejects
+    // hacer que Image dispare onerror para que la promesa de imagen rechace
     const OrigImage = (global as any).Image;
     (global as any).Image = class {
       onload: any = null;

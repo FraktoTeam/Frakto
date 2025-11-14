@@ -1,11 +1,11 @@
 /**
- * Integration test for Calendar component
+ * Prueba de integración para el componente Calendar
  */
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 
-// Mock external services used by Calendar
+// Mocks de servicios externos usados por Calendar
 jest.mock("@/utils/client", () => ({
-  // createClient is used as an already-instantiated client in Calendar
+  // createClient se utiliza como un cliente ya instanciado en Calendar
   createClient: {
     from: () => ({
       select: () => ({
@@ -22,7 +22,7 @@ jest.mock("@/utils/client", () => ({
 
 jest.mock("@/services/gastoFijoService", () => ({
   getGastosFijos: jest.fn().mockResolvedValue([
-    // one recurring fixed expense that should appear in the current month
+    // un gasto fijo recurrente que debería aparecer en el mes actual
     {
       id_gasto: 1,
       cartera_nombre: "Personal",
@@ -39,7 +39,7 @@ jest.mock("@/services/gastoFijoService", () => ({
 
 jest.mock("@/services/transaccionService", () => ({
   getIngresos: jest.fn().mockImplementation((cartera: string) => {
-    // Return a single income for portfolio "Personal" on today's date
+    // Devuelve un ingreso único para la cartera "Personal" en la fecha de hoy
     const today = new Date().toISOString().slice(0,10);
     if (cartera === "Personal") {
       return Promise.resolve([
@@ -57,8 +57,8 @@ describe("📅 Calendar (integration)", () => {
   beforeAll(() => {
     jest.spyOn(console, "error").mockImplementation(() => {});
     jest.spyOn(console, "warn").mockImplementation(() => {});
-    // Radix Select calls scrollIntoView on options; jsdom doesn't implement it.
-    // Provide a no-op to avoid TypeError: candidate?.scrollIntoView is not a function
+    // Radix Select invoca scrollIntoView en las opciones; jsdom no lo implementa.
+    // Proporcionamos una función vacía para evitar TypeError: candidate?.scrollIntoView is not a function
     if (typeof Element.prototype.scrollIntoView !== 'function') {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
@@ -73,7 +73,7 @@ describe("📅 Calendar (integration)", () => {
   it("renders calendar UI and legend", async () => {
     render(<Calendar userId={1} />);
 
-    // Title and legend
+    // Título y leyenda
     expect(await screen.findByText(/Calendario Financiero/)).toBeInTheDocument();
     expect(screen.getByText(/Ingresos/)).toBeInTheDocument();
     expect(screen.getByText(/Gastos/)).toBeInTheDocument();
@@ -83,30 +83,30 @@ describe("📅 Calendar (integration)", () => {
   it("shows indicators for days with transactions and fixed expenses and opens modal with combined list", async () => {
     render(<Calendar userId={1} />);
 
-    // Wait for calendar buttons to render
+    // Esperar a que se rendericen los botones del calendario
     const buttons = await screen.findAllByRole("button");
-    // find a day button that contains today's date (text is numeric)
+    // buscar un botón de día que contenga la fecha de hoy (el texto es numérico)
     const today = new Date().getDate();
 
-    // Find button with text of today's day
+    // Encontrar el botón cuyo texto es el día de hoy
     const dayButton = buttons.find(b => (b.textContent || "").includes(String(today)));
     expect(dayButton).toBeTruthy();
 
-    // Click it to open the modal
+    // Hacer clic para abrir el modal
     fireEvent.click(dayButton!);
 
-  // Dialog should open and show Movimientos header (there can be multiple matches: title + section)
+  // El diálogo debería abrirse y mostrar el encabezado 'Movimientos' (puede haber múltiples coincidencias: título + sección)
   const movs = await screen.findAllByText(/Movimientos/);
   expect(movs.length).toBeGreaterThan(0);
 
-    // Since we mocked one income and one fixed expense for Personal, they should appear in the combined list
-    // The Select should list both portfolios (Personal, Ahorros)
+    // Como hemos mockeado un ingreso y un gasto fijo para 'Personal', deberían aparecer en la lista combinada
+    // El Select debería listar ambas carteras (Personal, Ahorros)
     await waitFor(() => {
       const personalNodes = screen.queryAllByText(/Personal/);
       expect(personalNodes.length).toBeGreaterThan(0);
     });
 
-    // open the portfolio select so the options are rendered (Radix renders them on open)
+    // abrir el select de carteras para que se rendericen las opciones (Radix las renderiza al abrir)
     const trigger = screen.getByText(/Todas las carteras/);
     fireEvent.click(trigger);
     // now the option should be present
@@ -115,36 +115,36 @@ describe("📅 Calendar (integration)", () => {
       expect(ahorrosNodes.length).toBeGreaterThan(0);
     });
 
-  // The modal summary should show totals (income 100)
+  // El resumen del modal debería mostrar los totales (ingreso 100)
   expect(screen.getByText(/Total Ingresos/)).toBeInTheDocument();
   // The numeric total may be rendered in multiple places (title + summary). Accept any occurrence.
   const totalMatches = screen.queryAllByText(/\+€100\.00/);
   expect(totalMatches.length).toBeGreaterThan(0);
 
-    // Combined list should contain the description 'Sueldo' from the mocked income
+    // La lista combinada debe contener la descripción 'Sueldo' del ingreso mockeado
     expect(screen.getByText(/Sueldo/)).toBeInTheDocument();
-    // Fixed expense description should also be present
+    // La descripción del gasto fijo también debe estar presente
     expect(screen.getByText(/Netflix/)).toBeInTheDocument();
   });
 
   it("filters movements by selected portfolio", async () => {
     render(<Calendar userId={1} />);
 
-    // Open today's modal
+    // Abrir el modal del día de hoy
     const buttons = await screen.findAllByRole("button");
     const today = new Date().getDate();
     const dayButton = buttons.find(b => (b.textContent || "").includes(String(today)));
     fireEvent.click(dayButton!);
 
-    // wait for select trigger and open it
+    // esperar a que esté el trigger del select y abrirlo
     await waitFor(() => expect(screen.getByLabelText(/Filtrar por cartera/)).toBeInTheDocument());
 
-    // Open the select and pick 'Ahorros' which has no transactions
+    // Abrir el select y elegir 'Ahorros' que no tiene transacciones
     fireEvent.click(screen.getByText(/Todas las carteras/));
     // Click item (portal timing: find by text in document)
     fireEvent.click(await screen.findByText("Ahorros"));
 
-    // Since Ahorros has no movements, the empty state message should be present
+    // Como 'Ahorros' no tiene movimientos, debería mostrarse el mensaje de estado vacío
     await waitFor(() => {
       const el = screen.queryByText(/Esta cartera no tiene movimientos registrados en esta fecha/i);
       if (el) {
@@ -152,14 +152,14 @@ describe("📅 Calendar (integration)", () => {
         return;
       }
 
-      // fallback: the text may be split across nodes; check document text
+      // alternativa: el texto puede estar dividido en nodos; comprobar el texto completo del documento
       const txt = (document.body.textContent || "").replace(/\s+/g, " ");
       expect(txt).toMatch(/Esta cartera no tiene movimientos registrados en esta fecha/i);
     });
   });
 
-  it("handles empty portfolios gracefully", async () => {
-    // Temporarily override client mock to return empty portfolios
+  it("gestiona carteras vacías sin fallos", async () => {
+    // Anular temporalmente el mock del cliente para devolver carteras vacías
     jest.doMock("@/utils/client", () => ({
       createClient: {
         from: () => ({
@@ -170,11 +170,11 @@ describe("📅 Calendar (integration)", () => {
       },
     }), { virtual: true });
 
-    // Re-import Calendar to pick up the temporary mock
+    // Volver a importar Calendar para que use el mock temporal
     const { Calendar: CalendarReloaded } = require("@/app/components/Calendar");
     render(<CalendarReloaded userId={1} />);
 
-    // Open any day and expect the 'No hay movimientos' message inside the modal when opened
+    // Abrir cualquier día y esperar el mensaje 'No hay movimientos' dentro del modal al abrirse
     const buttons = await screen.findAllByRole("button");
     const dayBtn = buttons.find(b => (b.textContent || "").trim().length > 0);
     fireEvent.click(dayBtn!);
