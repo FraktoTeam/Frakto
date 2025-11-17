@@ -1,4 +1,4 @@
-// src/services/__tests__/transaccionService.test.ts
+// src/services/__tests__/transaccionService.test.ts (pruebas de unidad)
 
 jest.mock("../../utils/client", () => ({
   createClient: {
@@ -114,7 +114,6 @@ describe("transaccionService", () => {
       error: null,
     });
 
-  // Instead of relying on chainable order mock, spy on internal service methods (they are properties on default export)
   jest.spyOn(serviceDefault, "getIngresos").mockResolvedValue([
     {
       cartera_nombre: "personal",
@@ -274,11 +273,9 @@ describe("transaccionService", () => {
 
 });
 
-// Additional focused tests to increase coverage for service branches
 describe("transaccionService extra tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // ensure chainable mocks return this as in the main test file
     createClient.from.mockReturnThis();
     createClient.select.mockReturnThis();
     createClient.eq.mockReturnThis();
@@ -290,16 +287,13 @@ describe("transaccionService extra tests", () => {
     createClient.rpc.mockReturnThis();
   });
 
-  it("deleteIngreso: returns success when sequence succeeds", async () => {
-    // 1) fetch ingreso importe
+  it("deleteIngreso: devuelve éxito cuando la secuencia tiene éxito", async () => {
     createClient.single.mockResolvedValueOnce({ data: { importe: 123 }, error: null });
-    // 2) delete on ingreso
     createClient.delete.mockImplementationOnce(() => ({
       eq: () => ({
         eq: () => ({ error: null }),
       }),
     }));
-    // 3) actualizarSaldoCartera should be called (spy on default export)
     jest.spyOn(serviceDefault, "actualizarSaldoCartera").mockResolvedValue({ success: true, error: null } as any);
 
     const res = await servicio.deleteIngreso(1, "MiCartera", 11);
@@ -307,14 +301,14 @@ describe("transaccionService extra tests", () => {
     expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("MiCartera", 1, 123, "gasto");
   });
 
-  it("deleteIngreso: handles missing ingreso fetch", async () => {
+  it("deleteIngreso: maneja cuando no se encuentra el ingreso", async () => {
     createClient.single.mockResolvedValueOnce({ data: null, error: { message: "not found" } });
     const res = await servicio.deleteIngreso(1, "C", 99);
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/not found|Ingreso no encontrado/);
   });
 
-  it("deleteGasto: returns success and adjusts saldo", async () => {
+  it("deleteGasto: devuelve éxito y ajusta el saldo", async () => {
     createClient.single.mockResolvedValueOnce({ data: { importe: 50 }, error: null });
     createClient.delete.mockImplementationOnce(() => ({
       eq: () => ({
@@ -328,25 +322,25 @@ describe("transaccionService extra tests", () => {
     expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("CarteraX", 1, 50, "ingreso");
   });
 
-  it("editIngreso: updates and adjusts saldo by diferencia", async () => {
-    // fetch current importe
+  it("editIngreso: actualiza y ajusta el saldo por la diferencia", async () => {
+    // obtener el importe actual
     createClient.single.mockResolvedValueOnce({ data: { importe: 80 }, error: null });
-    // update the ingreso
+    // actualizar el ingreso
     createClient.update.mockImplementationOnce(() => ({
       eq: () => ({
         eq: () => ({ error: null }),
       }),
     }));
-    // spy actualizar
+    // espiar la función actualizar
     jest.spyOn(serviceDefault, "actualizarSaldoCartera").mockResolvedValue({ success: true, error: null } as any);
 
     const res = await servicio.editIngreso(12, 1, "CarteraY", 100, "desc", "2025-10-20");
     expect(res.success).toBe(true);
-    // diferencia = 20 -> should call actualizarSaldoCartera with tipo 'ingreso'
+    // diferencia = 20 -> debe llamar a actualizarSaldoCartera con tipo 'ingreso'
     expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("CarteraY", 1, Math.abs(20), "ingreso");
   });
 
-  it("editGasto: updates and adjusts saldo when gasto increases", async () => {
+  it("editGasto: actualiza y ajusta saldo cuando el gasto aumenta", async () => {
     createClient.single.mockResolvedValueOnce({ data: { importe: 60 }, error: null });
     createClient.update.mockImplementationOnce(() => ({
       eq: () => ({
@@ -357,12 +351,12 @@ describe("transaccionService extra tests", () => {
 
     const res = await servicio.editGasto(21, 1, "C", 80, "d", "2025-10-20", "Comida");
     expect(res.success).toBe(true);
-    // diferencia 20 -> since gasto increased, tipo should be 'gasto'
+    // diferencia 20 -> como el gasto aumentó, el tipo debe ser 'gasto'
     expect(serviceDefault.actualizarSaldoCartera).toHaveBeenCalledWith("C", 1, Math.abs(20), "gasto");
   });
 
-  it("deleteTransaccionesCartera: handles DB error on ingresos deletion", async () => {
-    // simulate first delete (ingresos) failing via chained eq calls
+  it("deleteTransaccionesCartera: maneja error de BD al eliminar ingresos", async () => {
+    // simular que la primera eliminación (ingresos) falle mediante llamadas encadenadas a eq
     createClient.delete.mockImplementationOnce(() => ({
       eq: () => ({
         eq: () => ({ error: { message: "ing fail" } }),
@@ -373,10 +367,10 @@ describe("transaccionService extra tests", () => {
     expect(res.error).toMatch(/ing fail/);
   });
 
-  it("getNumeroTransacciones: returns total count correctly", async () => {
-    // first call (ingresos head count) - return object with eq method
+  it("getNumeroTransacciones: devuelve el conteo total correctamente", async () => {
+    // primera llamada (conteo de ingresos) - devolver objeto con método eq
     createClient.select.mockImplementationOnce(() => ({ eq: () => ({ eq: () => ({ count: 2, error: null }) }) }));
-    // second call (gastos head count)
+    // segunda llamada (conteo de gastos)
     createClient.select.mockImplementationOnce(() => ({ eq: () => ({ eq: () => ({ count: 3, error: null }) }) }));
 
     const r = await servicio.getNumeroTransacciones(1, "C");
@@ -384,7 +378,7 @@ describe("transaccionService extra tests", () => {
     expect(r.error).toBeNull();
   });
 
-  it("getNumeroTransacciones: handles exceptions and returns 0", async () => {
+  it("getNumeroTransacciones: gestiona excepciones y devuelve 0", async () => {
     createClient.select.mockImplementationOnce(() => { throw new Error("boom"); });
     const r = await servicio.getNumeroTransacciones(1, "C");
     expect(r.total).toBe(0);

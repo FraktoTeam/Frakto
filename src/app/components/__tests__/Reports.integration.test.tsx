@@ -103,7 +103,6 @@ beforeAll(() => {
 
 
 afterAll(() => {
-  // restore original Image if present
   try { (global as any).Image = OriginalImage; } catch (_) { /* ignore */ }
   try {
     if (typeof OrigGetContext !== 'undefined') (HTMLCanvasElement.prototype as any).getContext = OrigGetContext;
@@ -118,12 +117,8 @@ describe("Reports - integración ligera", () => {
     jest.clearAllMocks();
   });
 
-  // Reset prototype helpers to defaults before each test so individual
-  // tests can override them safely
   beforeEach(() => {
-    // ensure jsPDF mock has sensible defaults used by Reports
     (TopLevelMockJsPDF.prototype as any).output = function (mode: string) {
-      // default: no blob support, arraybuffer returns a tiny buffer
       if (mode === 'blob') return null;
       if (mode === 'arraybuffer') return new ArrayBuffer(8);
       return null;

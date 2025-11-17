@@ -1,6 +1,6 @@
-// use global `jest` provided by the test environment
+// usar el `jest` global provisto por el entorno de pruebas
 
-// Shared mock object for utils client (mock both path styles to be safe)
+// Objeto mock compartido para el cliente de utils (mockear ambas rutas por seguridad)
 const mockClient = {
   createClient: {
     from: jest.fn(),
@@ -21,7 +21,7 @@ jest.mock('@/utils/client', () => ({ __esModule: true, createClient: mockClient.
 
 const { createClient } = require('../../utils/client');
 
-// Require the service after the mocks are registered to avoid import-time real client creation
+// Importar el servicio después de registrar los mocks para evitar la creación del cliente real en tiempo de importación
 const {
   getGastosFijos,
   createGastoFijo,
@@ -33,7 +33,7 @@ const {
 describe('gastoFijoService - unit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Ensure createClient.from is a jest mock and provide a safe default chain
+    // Asegurar que createClient.from sea un mock de jest y proporcionar una cadena por defecto segura
     if (!jest.isMockFunction(createClient.from)) {
       createClient.from = jest.fn();
     }
@@ -92,7 +92,7 @@ describe('gastoFijoService - unit', () => {
     expect(insertChain.insert).toHaveBeenCalled();
     expect(ok.data).toEqual(expect.objectContaining({ id_gasto: 2 }));
 
-    // error path
+    // ruta de error
     insertChain.single.mockResolvedValueOnce({ data: null, error: { message: 'insert fail' } });
     const err = await createGastoFijo(gasto as any);
     expect(err.error).toMatch(/insert fail/);
@@ -113,7 +113,7 @@ describe('gastoFijoService - unit', () => {
     expect(updateChain.eq).toHaveBeenCalledWith('id_gasto', 1);
     expect(ok.success).toBe(true);
 
-    // error path: single resolves to an error
+    // ruta de error: single resuelve con un error
     updateChain.single.mockResolvedValueOnce({ data: null, error: { message: 'update fail' } });
     const nok = await updateGastoFijo(1, { importe: 10 });
     expect(nok.success).toBe(false);
@@ -121,14 +121,14 @@ describe('gastoFijoService - unit', () => {
   });
 
   it('deleteGastoFijo devuelve éxito según respuesta', async () => {
-    // First call: select to fetch the old record
+    // Primera llamada: select para obtener el registro anterior
     const selectChain: any = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       single: jest.fn().mockReturnValue(Promise.resolve({ data: { cartera_nombre: 'Personal', id_usuario: 1 }, error: null })),
     };
 
-    // Second call: delete chain which resolves on eq()
+    // Segunda llamada: cadena de delete que resuelve en eq()
     const deleteChain: any = {
       delete: jest.fn().mockReturnThis(),
       eq: jest.fn().mockImplementation(() => Promise.resolve({ data: null, error: null })),
@@ -143,7 +143,7 @@ describe('gastoFijoService - unit', () => {
     expect(deleteChain.delete).toHaveBeenCalled();
     expect(ok.success).toBe(true);
 
-    // simulate delete error on second call
+    // simular error al eliminar en la segunda llamada
     (createClient.from as jest.Mock)
       .mockReturnValueOnce(selectChain)
       .mockReturnValueOnce({
@@ -169,7 +169,7 @@ describe('gastoFijoService - unit', () => {
     expect(updateChain.update).toHaveBeenCalledWith({ activo: true });
     expect(data).toEqual(expect.objectContaining({ id_gasto: 3 }));
 
-    // error path -> single returns error
+    // ruta de error -> single devuelve error
     updateChain.single.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
     await expect(toggleGastoFijoActivo(3, false)).rejects.toBeDefined();
   });
