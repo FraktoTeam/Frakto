@@ -347,6 +347,7 @@ const service = {
       return { data: [], error: err.message };
     }
   },
+  
 
   /**
    * Elimina todos los ingresos y gastos asociados a una cartera
@@ -482,6 +483,7 @@ const service = {
     }
   },
 
+  
   /**
    * Edita un gasto por id_gasto y ajusta el saldo de la cartera por la diferencia.
    */
@@ -546,6 +548,8 @@ const service = {
   },
 
 };
+
+
 
 // Export named wrapper functions that delegate to the service object so external API is unchanged
 /**
