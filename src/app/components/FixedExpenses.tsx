@@ -27,7 +27,11 @@ interface FixedExpense {
   lastGenerated?: string;
 }
 
-export function FixedExpenses() {
+interface FixedExpensesProps {
+  userId: number;
+}
+
+export function FixedExpenses({ userId }: FixedExpensesProps) {
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
 
 
@@ -42,7 +46,6 @@ export function FixedExpenses() {
   const [frequency, setFrequency] = useState("");
   const [startDate, setStartDate] = useState("");
   const [description, setDescription] = useState("");
-  const [userId, setUserId] = useState(1);
 
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<FixedExpense | null>(null);
@@ -89,7 +92,7 @@ export function FixedExpenses() {
     };
 
     fetchFixedExpenses();
-  }, []);
+  }, [userId]);
 
 
   const validateForm = (portfolioId: string, amt: string, cat: string, freq: string, date: string, desc: string) => {
@@ -156,7 +159,7 @@ export function FixedExpenses() {
     const errors = validateForm(selectedPortfolioId, amount, categoryLower, frequency, startDate, description);
     console.log("Creando gasto con atributos: ", {
       cartera_nombre: selectedPortfolioId,
-      id_usuario: 1,
+      id_usuario: userId,
       categoria_nombre: categoryLower,
       importe: parseFloat(amount),
       fecha_inicio: startDate,
@@ -172,7 +175,7 @@ export function FixedExpenses() {
     try {
       const { data, error } = await createGastoFijo({
         cartera_nombre: portfolio.nombre,
-        id_usuario: 1, 
+        id_usuario: userId, 
         categoria_nombre: categoryLower,
         importe: parseFloat(amount),
         fecha_inicio: startDate,
@@ -231,7 +234,7 @@ export function FixedExpenses() {
     const errors = validateForm(selectedPortfolioId, amount, categoryLower, frequency, startDate, description);
     console.log("Creando gasto con atributos: ", {
       cartera_nombre: selectedPortfolioId,
-      id_usuario: 1,
+      id_usuario: userId,
       categoria_nombre: categoryLower,
       importe: parseFloat(amount),
       fecha_inicio: startDate,

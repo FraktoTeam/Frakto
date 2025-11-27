@@ -70,9 +70,13 @@ interface FixedOccurrence {
   amount: number;
 }
 
-type CalendarProps = { userId?: number };
+interface CalendarProps {
+  userId: number;
+}
 
-export function Calendar({ userId = 1 }: CalendarProps) {
+
+
+export function Calendar({ userId }: CalendarProps) {
   const now = new Date();
 
   // --- HOOKS: siempre dentro del componente ---

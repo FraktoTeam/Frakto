@@ -33,10 +33,9 @@ interface PortfolioProps {
   onNavigateBack?: (view: string) => void;
 }
 
-export function Portfolio({ selectedId, previousView = "home", onNavigateBack }: PortfolioProps) {
+export function Portfolio({ userId, selectedId, previousView = "home", onNavigateBack }: PortfolioProps) {
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(1)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPortfolio, setEditingPortfolio] = useState<PortfolioItem | null>(null);
   const [newName, setNewName] = useState("");
