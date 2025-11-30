@@ -15,6 +15,8 @@ import { createIngreso, createGasto, evaluarRiesgoGastoIngreso, calcularSaldoCar
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DollarSign, ShoppingCart, Edit } from "lucide-react";
+import { Analytics } from "./Analytics"; 
+
 
 interface PortfolioItem {
   id: number;
@@ -831,6 +833,12 @@ if (selectedPortfolio) {
           </CardContent>
         </Card>
       </div>
+
+  
+
+      {/* 👇 AÑADIMOS ESTO */}
+      
+       
 
       <Card>
         <CardHeader>

@@ -21,6 +21,8 @@ import { Reports } from "./components/Reports";
 import { Calendar } from "./components/Calendar";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
+import { Analytics } from "./components/Analytics";
+
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -114,6 +116,7 @@ export default function App() {
     switch (activeView) {
       case "home":
         return <Home onSelectPortfolio={handleSelectPortfolio} userId={userId!} />;
+     
       case "reports":
         return <Reports userId={userId!} />;
       case "portfolio":
@@ -127,19 +130,22 @@ export default function App() {
         );
       case "fixexpenses":
         return <FixedExpenses userId={userId!} />;
-      case "analytics":
+          case "analytics":
         return (
           <div className="space-y-6">
             <div>
               <h2>Análisis</h2>
               <p className="text-gray-500">Análisis detallado de tus ingresos y gastos</p>
             </div>
-            <div className="bg-gray-100 rounded-lg p-12 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Próximamente disponible</p>
-            </div>
+            {/* Analytics de la primera cartera del usuario */}
+            {userId && (
+              <Analytics
+                userId={userId}
+              />
+            )}
           </div>
         );
+
       case "calendar":
         return <Calendar userId={userId!} />;
       case "settings":
