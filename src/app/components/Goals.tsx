@@ -26,27 +26,27 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import { createClient } from "@/utils/client"; // 🔹 misma import que en transaction service (ajusta ruta si hace falta)
+import { createClient } from "@/utils/client";
 
 interface Goal {
-  id: number;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string;
-  portfolioId: string | null;     // usamos nombre de cartera como id lógico
+  id: number;                  // id_meta
+  name: string;                // nombre
+  targetAmount: number;        // cantidad_objetivo
+  currentAmount: number;       // calculado según saldo real
+  deadline: string;            // fecha_limite (yyyy-mm-dd)
+  portfolioId: string | null;  // cartera_nombre o null
   portfolioName: string;
   status: "active" | "completed" | "expired";
 }
 
 interface Portfolio {
-  id: string;     // nombre de la cartera
-  name: string;   // nombre de la cartera
+  id: string;   // nombre de la cartera
+  name: string;
   balance: number;
 }
 
 interface GoalsProps {
-  userId: number; // aquí ya lo hago obligatorio: las metas dependen del usuario
+  userId: number;
   onActiveGoalsChange?: (count: number) => void;
 }
 
@@ -55,8 +55,9 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
   const [loadingPortfolios, setLoadingPortfolios] = useState(true);
   const [portfoliosError, setPortfoliosError] = useState<string | null>(null);
 
-  // 🔹 Metas: ahora empezamos SIN mock. Las crea el usuario.
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(true);
+  const [goalsError, setGoalsError] = useState<string | null>(null);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -74,7 +75,7 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
     portfolio: "",
   });
 
-  // 🔹 Cargar carteras reales de la BD (tabla "cartera")
+  // Cargar carteras reales
   useEffect(() => {
     const fetchPortfolios = async () => {
       if (!userId) return;
@@ -94,12 +95,11 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
           return;
         }
 
-        const mapped: Portfolio[] =
-          (data ?? []).map((row: any) => ({
-            id: row.nombre,
-            name: row.nombre,
-            balance: row.saldo ?? 0,
-          }));
+        const mapped: Portfolio[] = (data ?? []).map((row: any) => ({
+          id: row.nombre,
+          name: row.nombre,
+          balance: row.saldo ?? 0,
+        }));
 
         setPortfolios(mapped);
       } catch (e: any) {
@@ -113,68 +113,92 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
     fetchPortfolios();
   }, [userId]);
 
-  // Total carteras (dinero real del usuario)
-  const getTotalBalance = () => {
-    return portfolios.reduce((sum, p) => sum + p.balance, 0);
-  };
+  // Cargar metas desde meta_ahorro
+  useEffect(() => {
+    const fetchGoals = async () => {
+      if (!userId) return;
+      try {
+        setLoadingGoals(true);
+        setGoalsError(null);
 
-  // Balance según cartera asociada a la meta
+        const { data, error } = await createClient
+          .from("meta_ahorro")
+          .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre")
+          .eq("id_usuario", userId)
+          .order("fecha_limite", { ascending: true });
+
+        if (error) {
+          console.error("Error cargando metas:", error.message);
+          setGoalsError("No se pudieron cargar tus metas de ahorro.");
+          setGoals([]);
+          return;
+        }
+
+        const mapped: Goal[] = (data ?? []).map((m: any) => ({
+          id: m.id_meta,
+          name: m.nombre,
+          targetAmount: Number(m.cantidad_objetivo),
+          currentAmount: 0, // se recalcula más abajo
+          deadline: m.fecha_limite,
+          portfolioId: m.cartera_nombre,
+          portfolioName: m.cartera_nombre ?? "Todas las carteras",
+          status: "active",
+        }));
+
+        setGoals(mapped);
+      } catch (e: any) {
+        console.error("Error inesperado cargando metas:", e);
+        setGoalsError("Error inesperado cargando tus metas de ahorro.");
+      } finally {
+        setLoadingGoals(false);
+      }
+    };
+
+    fetchGoals();
+  }, [userId]);
+
+  // Total carteras (dinero real)
+  const getTotalBalance = () =>
+    portfolios.reduce((sum, p) => sum + p.balance, 0);
+
+  // Saldo según cartera asociada a la meta
   const getCurrentAmount = (portfolioId: string | null) => {
-    if (portfolioId === null) {
-      // meta asociada a "todas las carteras"
-      return getTotalBalance();
-    }
+    if (portfolioId === null) return getTotalBalance();
     const portfolio = portfolios.find((p) => p.id === portfolioId);
     return portfolio ? portfolio.balance : 0;
   };
 
-  // Estado de la meta (en base al DINERO REAL)
+  // Estado de la meta según dinero real + fecha
   const calculateStatus = (goal: Goal): "active" | "completed" | "expired" => {
     const today = new Date();
     const deadline = new Date(goal.deadline);
     const currentAmount = getCurrentAmount(goal.portfolioId);
 
-    if (currentAmount >= goal.targetAmount) {
-      return "completed";
-    }
-
-    if (deadline < today) {
-      return "expired";
-    }
-
+    if (currentAmount >= goal.targetAmount) return "completed";
+    if (deadline < today) return "expired";
     return "active";
   };
 
-  // Actualizar estados de las metas cada vez que cambia dinero o metas
-  const getUpdatedGoals = () => {
-    return goals.map((goal) => ({
-      ...goal,
-      currentAmount: getCurrentAmount(goal.portfolioId),
-      status: calculateStatus(goal),
-    }));
-  };
-
-  const updatedGoals = getUpdatedGoals();
+  // Metas actualizadas con currentAmount/status
+  const updatedGoals: Goal[] = goals.map((goal) => ({
+    ...goal,
+    currentAmount: getCurrentAmount(goal.portfolioId),
+    status: calculateStatus(goal),
+  }));
 
   // Contar metas activas
-  const activeGoalsCount = updatedGoals.filter((g) => g.status === "active").length;
+  const activeGoalsCount = updatedGoals.filter(
+    (g) => g.status === "active"
+  ).length;
 
-  // Avisar al App del nº de metas activas (para el circulito de la barra lateral)
+  // Avisar al App para el badge del sidebar
   useEffect(() => {
-    if (onActiveGoalsChange) {
-      onActiveGoalsChange(activeGoalsCount);
-    }
+    if (onActiveGoalsChange) onActiveGoalsChange(activeGoalsCount);
   }, [activeGoalsCount, onActiveGoalsChange]);
 
-  // Validación del formulario de nueva meta
+  // Validación
   const validateForm = () => {
-    const newErrors = {
-      name: "",
-      amount: "",
-      deadline: "",
-      portfolio: "",
-    };
-
+    const newErrors = { name: "", amount: "", deadline: "", portfolio: "" };
     let isValid = true;
 
     if (!newGoalName.trim()) {
@@ -194,7 +218,6 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
       const selectedDate = new Date(newGoalDeadline);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
       if (selectedDate <= today) {
         newErrors.deadline = "La fecha debe ser futura";
         isValid = false;
@@ -210,7 +233,8 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
     return isValid;
   };
 
-  const handleCreateGoal = () => {
+  // Crear meta → Supabase + estado
+  const handleCreateGoal = async () => {
     if (!validateForm()) return;
 
     const portfolioId = newGoalPortfolio === "all" ? null : newGoalPortfolio;
@@ -219,39 +243,79 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
         ? "Todas las carteras"
         : portfolios.find((p) => p.id === portfolioId)?.name || "";
 
-    const newGoal: Goal = {
-      id: Math.max(...goals.map((g) => g.id), 0) + 1,
-      name: newGoalName,
-      targetAmount: parseFloat(newGoalAmount),
-      currentAmount: getCurrentAmount(portfolioId),
-      deadline: newGoalDeadline,
-      portfolioId,
-      portfolioName,
-      status: "active",
-    };
+    try {
+      const { data, error } = await createClient
+        .from("meta_ahorro")
+        .insert([
+          {
+            id_usuario: userId,
+            nombre: newGoalName,
+            cantidad_objetivo: parseFloat(newGoalAmount),
+            fecha_limite: newGoalDeadline,
+            cartera_nombre: portfolioId,
+          },
+        ])
+        .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre")
+        .maybeSingle();
 
-    setGoals((prev) => [...prev, newGoal]);
+      if (error || !data) {
+        console.error("Error creando meta:", error?.message);
+        // Aquí podrías mostrar un toast si tienes sistema de alertas
+        return;
+      }
 
-    // Reset form
-    setNewGoalName("");
-    setNewGoalAmount("");
-    setNewGoalDeadline("");
-    setNewGoalPortfolio("");
-    setErrors({ name: "", amount: "", deadline: "", portfolio: "" });
-    setIsDialogOpen(false);
+      const created: Goal = {
+        id: data.id_meta,
+        name: data.nombre,
+        targetAmount: Number(data.cantidad_objetivo),
+        currentAmount: getCurrentAmount(portfolioId),
+        deadline: data.fecha_limite,
+        portfolioId: data.cartera_nombre,
+        portfolioName,
+        status: "active",
+      };
+
+      setGoals((prev) => [...prev, created]);
+
+      setNewGoalName("");
+      setNewGoalAmount("");
+      setNewGoalDeadline("");
+      setNewGoalPortfolio("");
+      setErrors({ name: "", amount: "", deadline: "", portfolio: "" });
+      setIsDialogOpen(false);
+    } catch (e: any) {
+      console.error("Error inesperado creando meta:", e);
+    }
+  };
+
+  // Eliminar meta → Supabase + estado
+  const handleDeleteConfirm = async () => {
+    if (!deletingGoal) return;
+
+    try {
+      const { error } = await createClient
+        .from("meta_ahorro")
+        .delete()
+        .eq("id_meta", deletingGoal.id)
+        .eq("id_usuario", userId);
+
+      if (error) {
+        console.error("Error eliminando meta:", error.message);
+        // Aquí también podrías mostrar toast
+      } else {
+        setGoals((prev) => prev.filter((g) => g.id !== deletingGoal.id));
+      }
+    } catch (e: any) {
+      console.error("Error inesperado eliminando meta:", e);
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeletingGoal(null);
+    }
   };
 
   const handleDeleteClick = (goal: Goal) => {
     setDeletingGoal(goal);
     setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deletingGoal) {
-      setGoals((prev) => prev.filter((g) => g.id !== deletingGoal.id));
-      setIsDeleteDialogOpen(false);
-      setDeletingGoal(null);
-    }
   };
 
   const handleDeleteCancel = () => {
@@ -317,7 +381,10 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-green-600 hover:bg-green-700" disabled={loadingPortfolios || portfolios.length === 0}>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              disabled={loadingPortfolios || portfolios.length === 0}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Nueva Meta
             </Button>
@@ -331,11 +398,18 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                 <p className="text-sm text-red-600">{portfoliosError}</p>
               )}
 
-              {portfolios.length === 0 && !loadingPortfolios && !portfoliosError && (
-                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
-                  No tienes carteras creadas todavía. Crea al menos una cartera para poder asociarla a tus metas.
-                </p>
+              {goalsError && (
+                <p className="text-sm text-red-600">{goalsError}</p>
               )}
+
+              {portfolios.length === 0 &&
+                !loadingPortfolios &&
+                !portfoliosError && (
+                  <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+                    No tienes carteras creadas todavía. Crea al menos una cartera
+                    para poder asociarla a tus metas.
+                  </p>
+                )}
 
               {/* Nombre */}
               <div className="space-y-2">
@@ -346,7 +420,9 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                   value={newGoalName}
                   onChange={(e) => setNewGoalName(e.target.value)}
                 />
-                {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
+                {errors.name && (
+                  <p className="text-sm text-red-600">{errors.name}</p>
+                )}
               </div>
 
               {/* Cantidad */}
@@ -360,7 +436,9 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                   value={newGoalAmount}
                   onChange={(e) => setNewGoalAmount(e.target.value)}
                 />
-                {errors.amount && <p className="text-sm text-red-600">{errors.amount}</p>}
+                {errors.amount && (
+                  <p className="text-sm text-red-600">{errors.amount}</p>
+                )}
               </div>
 
               {/* Fecha Límite */}
@@ -372,15 +450,26 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                   value={newGoalDeadline}
                   onChange={(e) => setNewGoalDeadline(e.target.value)}
                 />
-                {errors.deadline && <p className="text-sm text-red-600">{errors.deadline}</p>}
+                {errors.deadline && (
+                  <p className="text-sm text-red-600">{errors.deadline}</p>
+                )}
               </div>
 
               {/* Cartera Asociada */}
               <div className="space-y-2">
                 <Label htmlFor="goal-portfolio">Cartera Asociada *</Label>
-                <Select value={newGoalPortfolio} onValueChange={setNewGoalPortfolio}>
+                <Select
+                  value={newGoalPortfolio}
+                  onValueChange={setNewGoalPortfolio}
+                >
                   <SelectTrigger id="goal-portfolio">
-                    <SelectValue placeholder={loadingPortfolios ? "Cargando carteras..." : "Selecciona una cartera"} />
+                    <SelectValue
+                      placeholder={
+                        loadingPortfolios
+                          ? "Cargando carteras..."
+                          : "Selecciona una cartera"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las carteras</SelectItem>
@@ -450,7 +539,9 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                 minimumFractionDigits: 2,
               })}
             </div>
-            <p className="text-xs text-gray-500">Saldo total en tus carteras</p>
+            <p className="text-xs text-gray-500">
+              Saldo total en tus carteras
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -463,8 +554,9 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
             <div>
               <h3 className="text-gray-700 mb-2">Sin metas de ahorro</h3>
               <p className="text-gray-500">
-                Crea tu primera meta de ahorro para comenzar a alcanzar tus objetivos
-                financieros usando el dinero que ya tienes en tus carteras.
+                Crea tu primera meta de ahorro para comenzar a alcanzar tus
+                objetivos financieros usando el dinero que ya tienes en tus
+                carteras.
               </p>
             </div>
           </div>
@@ -472,7 +564,10 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {updatedGoals.map((goal) => {
-            const progress = (goal.currentAmount / goal.targetAmount) * 100;
+            const progress =
+              goal.targetAmount === 0
+                ? 0
+                : (goal.currentAmount / goal.targetAmount) * 100;
             const cappedProgress = Math.min(progress, 100);
 
             return (
@@ -515,27 +610,27 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Progreso */}
-                  {/* Progreso */}
-<div>
-  <div className="flex items-center justify-between mb-2">
-    <span className="text-sm text-gray-500">Progreso</span>
-    <span className="font-bold">{cappedProgress.toFixed(1)}%</span>
-  </div>
-
-  {/* Barra de progreso casera */}
-  <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden">
-    <div
-      className="h-full bg-green-500 transition-all duration-300"
-      style={{ width: `${cappedProgress}%` }}
-    />
-  </div>
-</div>
-
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500">Progreso</span>
+                      <span className="font-bold">
+                        {cappedProgress.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-3 rounded-full bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full bg-green-500 transition-all duration-300"
+                        style={{ width: `${cappedProgress}%` }}
+                      />
+                    </div>
+                  </div>
 
                   {/* Cantidades */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Acumulado (dinero real)</p>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Acumulado (dinero real)
+                      </p>
                       <p className="font-bold text-green-600">
                         €
                         {goal.currentAmount.toLocaleString("es-ES", {
@@ -562,7 +657,8 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Calendar className="h-4 w-4" />
-                      {formatDate(goal.deadline)} ({getDaysRemaining(goal.deadline)})
+                      {formatDate(goal.deadline)} (
+                      {getDaysRemaining(goal.deadline)})
                     </div>
                   </div>
 
@@ -592,12 +688,16 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar meta de ahorro?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas eliminar esta meta? Esta acción no se puede deshacer.
+              ¿Seguro que deseas eliminar esta meta? Esta acción no se puede
+              deshacer.
             </AlertDialogDescription>
             {deletingGoal && (
               <div className="bg-gray-50 rounded-lg p-3 mt-2">

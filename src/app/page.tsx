@@ -15,7 +15,7 @@ import {
   FileText,
   CalendarIcon,
   LogOut,
-  Target,
+  Target,            // 👈 icono metas
 } from "lucide-react";
 import Inbox from "./components/Inbox";
 import { Reports } from "./components/Reports";
@@ -23,7 +23,7 @@ import { Calendar } from "./components/Calendar";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
 import { Analytics } from "./components/Analytics";
-import { Goals } from "./components/Goals"; 
+import { Goals } from "./components/Goals";   // 👈 nuestro componente de metas
 
 import {
   AlertDialog,
@@ -43,11 +43,13 @@ export default function App() {
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
 
+  // metas activas → para el circulito azul
+  const [activeGoals, setActiveGoals] = useState(0);
+
   // Estado para login/register
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isLogged, setIsLogged] = useState(false);
   const [loggedUser, setLoggedUser] = useState<{ nombre_usuario: string; correo: string } | null>(null);
-  const [activeGoalsCount, setActiveGoalsCount] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("usuario");
@@ -103,55 +105,64 @@ export default function App() {
     setActiveView("home");
   };
 
-  // Menú lateral
+  // Menú lateral (añadimos "goals")
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "portfolio", label: "Cartera", icon: Briefcase },
     { id: "fixexpenses", label: "Gastos Fijos", icon: Repeat },
     { id: "analytics", label: "Análisis", icon: BarChart3 },
+    { id: "goals", label: "Metas", icon: Target },           // 👈 solo una vez
     { id: "reports", label: "Reportes", icon: FileText },
     { id: "calendar", label: "Calendario", icon: CalendarIcon },
-    { id: "goals", label: "Metas", icon: Target },   
     { id: "settings", label: "Configuración", icon: Settings },
   ];
 
   // Render de vistas
   const renderView = () => {
+    if (!userId) return null;
+
     switch (activeView) {
       case "home":
-        return <Home onSelectPortfolio={handleSelectPortfolio} userId={userId!} />;
-     
+        return <Home onSelectPortfolio={handleSelectPortfolio} userId={userId} />;
+
       case "reports":
-        return <Reports userId={userId!} />;
+        return <Reports userId={userId} />;
+
       case "portfolio":
         return (
           <Portfolio
-            userId={userId!}
+            userId={userId}
             selectedId={selectedPortfolioId}
             previousView={previousView}
             onNavigateBack={setActiveView}
           />
         );
+
       case "fixexpenses":
-        return <FixedExpenses userId={userId!} />;
-          case "analytics":
+        return <FixedExpenses userId={userId} />;
+
+      case "analytics":
         return (
           <div className="space-y-6">
             <div>
               <h2>Análisis</h2>
               <p className="text-gray-500">Análisis detallado de tus ingresos y gastos</p>
             </div>
-            {/* Analytics de la primera cartera del usuario */}
-            {userId && (
-              <Analytics
-                userId={userId}
-              />
-            )}
+            <Analytics userId={userId} />
           </div>
         );
 
+      case "goals":
+        return (
+          <Goals
+            userId={userId}
+            onActiveGoalsChange={setActiveGoals}   // 👈 aquí actualizamos el número del circulito
+          />
+        );
+
       case "calendar":
-        return <Calendar userId={userId!} />;
+        return <Calendar userId={userId} />;
+
       case "settings":
         return (
           <div className="space-y-6">
@@ -165,17 +176,12 @@ export default function App() {
             </div>
           </div>
         );
-        case "goals":
-        return (
-          <Goals
-            userId={userId!}
-            onActiveGoalsChange={setActiveGoalsCount}  // ⬅ aquí conectamos el contador
-          />
-        );
+
       case "inbox":
-        return <Inbox userId={userId!} />;
+        return <Inbox userId={userId} />;
+
       default:
-        return <Home onSelectPortfolio={handleSelectPortfolio} userId={userId!} />;
+        return <Home onSelectPortfolio={handleSelectPortfolio} userId={userId} />;
     }
   };
 
@@ -209,12 +215,14 @@ export default function App() {
             {menuItems.map((item) => {
               const Icon = item.icon;
               const active = activeView === item.id;
+              const isGoals = item.id === "goals";
+
               return (
                 <li key={item.id}>
                   <button
                     onClick={() => setActiveView(item.id)}
                     className={[
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors",
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors relative",
                       active
                         ? "bg-green-50 text-green-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,.15)]"
                         : "text-gray-700 hover:bg-gray-100",
@@ -228,6 +236,15 @@ export default function App() {
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
                       {item.label}
                     </span>
+
+                    {/* Circulito azul con número de metas activas */}
+                    {isGoals && activeGoals > 0 && (
+                      <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] h-5 min-w-[20px] px-1">
+                          {activeGoals}
+                        </div>
+                      </div>
+                    )}
                   </button>
                 </li>
               );
@@ -321,7 +338,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        <AlertBanner userId={userId!} />
+        {userId && <AlertBanner userId={userId} />}
         <div className="p-6">{renderView()}</div>
       </main>
     </div>
