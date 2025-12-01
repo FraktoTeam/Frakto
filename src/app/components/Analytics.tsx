@@ -101,14 +101,22 @@ function getDateRange(period: Period) {
     case "monthly":
       startDate.setMonth(today.getMonth());
       startDate.setDate(1);
+      // Ajuste para el 1er del mes: si es 1 de diciembre, queremos todo el mes de diciembre.
+      // Si la hora es irrelevante, nos aseguramos de que empiece a las 00:00:00 del día 1.
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
       break;
     case "quarterly":
       startDate.setMonth(today.getMonth() - 2);
       startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
       break;
     case "annual":
       startDate.setMonth(today.getMonth() - 11);
       startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
       break;
   }
 
@@ -240,8 +248,19 @@ export function Analytics({ userId }: AnalyticsProps) {
     const { startDate, endDate } = getDateRange(period);
 
     return rows.filter((t) => {
+      // Usar new Date(t.date) para la fecha de la transacción
       const d = new Date(t.date);
-      return d >= startDate && d <= endDate;
+      // Ajustar la fecha de la transacción para que sea comparable con el rango.
+      // Si t.date es '2025-12-01', new Date(t.date) puede ser '2025-12-01T00:00:00.000Z'
+      // Dependiendo de la zona horaria. Si el rango de fechas está ajustado con
+      // .setHours(0, 0, 0, 0) y .setHours(23, 59, 59, 999), es mejor asegurarse que 'd'
+      // es un objeto Date válido que solo usa la parte de la fecha para la comparación.
+      // Una forma segura es convertir 't.date' a un objeto Date del día 00:00 en zona local:
+      const [year, month, day] = t.date.split("-").map(Number);
+      const transactionDate = new Date(year, month - 1, day);
+
+
+      return transactionDate >= startDate && transactionDate <= endDate;
     });
   }, [rows, period]);
 
@@ -372,57 +391,14 @@ export function Analytics({ userId }: AnalyticsProps) {
   const COLORS = ["#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7"];
 
   const hasEnoughData = filteredTransactions.length > 0;
+  
+  // Condición para mostrar el mensaje de "Sin datos"
+  const shouldShowNoDataMessage = !loading && !hasEnoughData;
 
-  // ========== UI SIN DATOS / ERRORES ==========
-  if (!loading && (!hasEnoughData || portfolios.length === 0)) {
-    const now = new Date();
-    const currentMonth = monthNamesLong[now.getMonth()];
-    const currentYear = now.getFullYear();
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2>Análisis Financiero</h2>
-            <p className="text-gray-500">
-              Estadísticas y visualización de tus finanzas
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Mes actual: {currentMonth} {currentYear}
-            </p>
-          </div>
-        </div>
-
-        <Card className="p-12">
-          <div className="text-center space-y-4">
-            <BarChart3 className="h-16 w-16 mx-auto text-gray-400" />
-            <div>
-              <h3 className="text-gray-700 mb-2">
-                Sin datos disponibles en el periodo seleccionado
-              </h3>
-              {loadError ? (
-                <p className="text-red-500 text-sm">Error: {loadError}</p>
-              ) : (
-                <>
-                  <p className="text-gray-500">
-                    Aún no hay suficientes movimientos para generar estadísticas.
-                  </p>
-                  <p className="text-gray-500">
-                    Registra ingresos y gastos para ver tu análisis financiero.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // ========== UI PRINCIPAL ==========
+  // ========== UI PRINCIPAL con los selectores siempre visibles ==========
   return (
     <div className="space-y-6">
-      {/* Header con selector de periodo y cartera */}
+      {/* Header con selector de periodo y cartera - ESTA PARTE ES VISIBLE SIEMPRE */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2>Análisis Financiero</h2>
@@ -439,6 +415,7 @@ export function Analytics({ userId }: AnalyticsProps) {
           <Select
             value={selectedPortfolio}
             onValueChange={(value) => setSelectedPortfolio(value)}
+            disabled={loading}
           >
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Cartera" />
@@ -457,6 +434,7 @@ export function Analytics({ userId }: AnalyticsProps) {
           <Select
             value={period}
             onValueChange={(value) => setPeriod(value as Period)}
+            disabled={loading}
           >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Periodo" />
@@ -478,252 +456,283 @@ export function Analytics({ userId }: AnalyticsProps) {
         <div className="text-sm text-red-600">Error: {loadError}</div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Total Ingresos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-green-600">
-              €
-              {kpis.totalIncome.toLocaleString("es-ES", {
-                minimumFractionDigits: 2,
-              })}
+      {/* Mensaje de NO DATOS - Se muestra si no hay datos filtrados */}
+      {shouldShowNoDataMessage && (
+        <Card className="p-12">
+          <div className="text-center space-y-4">
+            <BarChart3 className="h-16 w-16 mx-auto text-gray-400" />
+            <div>
+              <h3 className="text-gray-700 mb-2">
+                Sin datos disponibles en el periodo seleccionado
+              </h3>
+              {loadError ? (
+                <p className="text-red-500 text-sm">Error: {loadError}</p>
+              ) : (
+                <>
+                  <p className="text-gray-500">
+                    Aún no hay suficientes movimientos para generar estadísticas en este rango.
+                  </p>
+                  <p className="text-gray-500">
+                    Cambia el periodo o la cartera seleccionada para ver el análisis.
+                  </p>
+                </>
+              )}
             </div>
-            <p className="text-xs text-gray-500">Periodo seleccionado</p>
-          </CardContent>
+          </div>
         </Card>
+      )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Total Gastos</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-red-600">
-              €
-              {kpis.totalExpense.toLocaleString("es-ES", {
-                minimumFractionDigits: 2,
-              })}
-            </div>
-            <p className="text-xs text-gray-500">Periodo seleccionado</p>
-          </CardContent>
-        </Card>
+      {/* Contenido de análisis solo si hay datos */}
+      {!loading && hasEnoughData && (
+        <>
+          {/* KPI Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm">Total Ingresos</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-green-600">
+                  €
+                  {kpis.totalIncome.toLocaleString("es-ES", {
+                    minimumFractionDigits: 2,
+                  })}
+                </div>
+                <p className="text-xs text-gray-500">Periodo seleccionado</p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-gray-600" />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`font-bold ${
-                kpis.balance >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              €
-              {kpis.balance.toLocaleString("es-ES", {
-                minimumFractionDigits: 2,
-              })}
-            </div>
-            <p className="text-xs text-gray-500">Ingresos - Gastos</p>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm">Total Gastos</CardTitle>
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-red-600">
+                  €
+                  {kpis.totalExpense.toLocaleString("es-ES", {
+                    minimumFractionDigits: 2,
+                  })}
+                </div>
+                <p className="text-xs text-gray-500">Periodo seleccionado</p>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm">Tasa de Ahorro</CardTitle>
-            <PiggyBank className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-green-600">
-              {kpis.savingsRate.toFixed(1)}%
-            </div>
-            <p className="text-xs text-gray-500">Del total de ingresos</p>
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm">Balance</CardTitle>
+                <DollarSign className="h-4 w-4 text-gray-600" />
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`font-bold ${
+                    kpis.balance >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  €
+                  {kpis.balance.toLocaleString("es-ES", {
+                    minimumFractionDigits: 2,
+                  })}
+                </div>
+                <p className="text-xs text-gray-500">Ingresos - Gastos</p>
+              </CardContent>
+            </Card>
 
-      {/* Evolución temporal */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-green-600" />
-            Evolución Temporal
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="ingresos"
-                stroke="#16a34a"
-                strokeWidth={2}
-                name="Ingresos"
-              />
-              <Line
-                type="monotone"
-                dataKey="gastos"
-                stroke="#dc2626"
-                strokeWidth={2}
-                name="Gastos"
-              />
-              <Line
-                type="monotone"
-                dataKey="balance"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                name="Balance"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm">Tasa de Ahorro</CardTitle>
+                <PiggyBank className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-green-600">
+                  {kpis.savingsRate.toFixed(1)}%
+                </div>
+                <p className="text-xs text-gray-500">Del total de ingresos</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Gráficos de distribución y comparativa */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Distribución por categoría */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribución de Gastos por Categoría</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categoryData.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No hay gastos en el periodo seleccionado.
-              </p>
-            ) : (
+          {/* Evolución temporal */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-green-600" />
+                Evolución Temporal
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percentage }) => `${name} (${percentage}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
+                <LineChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
                   <Tooltip />
-                </PieChart>
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="ingresos"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    name="Ingresos"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="gastos"
+                    stroke="#dc2626"
+                    strokeWidth={2}
+                    name="Gastos"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="balance"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    name="Balance"
+                  />
+                </LineChart>
               </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Comparativa Ingresos vs Gastos */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Comparativa Ingresos vs Gastos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="ingresos" fill="#16a34a" name="Ingresos" />
-                <Bar dataKey="gastos" fill="#dc2626" name="Gastos" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+          {/* Gráficos de distribución y comparativa */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Distribución por categoría */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribución de Gastos por Categoría</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {categoryData.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No hay gastos en el periodo seleccionado.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percentage }) => `${name} (${percentage}%)`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
 
-      {/* Top 5 Gastos e Ingresos */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Top 5 Gastos */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top 5 Gastos Más Altos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topExpenses.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No hay gastos registrados en este periodo.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {topExpenses.map((expense, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm">{expense.description}</p>
-                      <p className="text-xs text-gray-500">
-                        {expense.category} •{" "}
-                        {new Date(expense.date).toLocaleDateString("es-ES")}
-                      </p>
-                    </div>
-                    <div className="font-bold text-red-600">
-                      €
-                      {expense.amount.toLocaleString("es-ES", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </div>
+            {/* Comparativa Ingresos vs Gastos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Comparativa Ingresos vs Gastos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="ingresos" fill="#16a34a" name="Ingresos" />
+                    <Bar dataKey="gastos" fill="#dc2626" name="Gastos" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top 5 Gastos e Ingresos */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Top 5 Gastos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top 5 Gastos Más Altos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {topExpenses.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No hay gastos registrados en este periodo.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {topExpenses.map((expense, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm">{expense.description}</p>
+                          <p className="text-xs text-gray-500">
+                            {expense.category} •{" "}
+                            {new Date(expense.date).toLocaleDateString("es-ES")}
+                          </p>
+                        </div>
+                        <div className="font-bold text-red-600">
+                          €
+                          {expense.amount.toLocaleString("es-ES", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
 
-        {/* Top 5 Ingresos */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top 5 Ingresos Más Altos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topIncomes.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No hay ingresos registrados en este periodo.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {topIncomes.map((income, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm">{income.description}</p>
-                      <p className="text-xs text-gray-500">
-                        {income.category} •{" "}
-                        {new Date(income.date).toLocaleDateString("es-ES")}
-                      </p>
-                    </div>
-                    <div className="font-bold text-green-600">
-                      +€
-                      {income.amount.toLocaleString("es-ES", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </div>
+            {/* Top 5 Ingresos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Top 5 Ingresos Más Altos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {topIncomes.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No hay ingresos registrados en este periodo.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {topIncomes.map((income, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm">{income.description}</p>
+                          <p className="text-xs text-gray-500">
+                            {income.category} •{" "}
+                            {new Date(income.date).toLocaleDateString("es-ES")}
+                          </p>
+                        </div>
+                        <div className="font-bold text-green-600">
+                          +€
+                          {income.amount.toLocaleString("es-ES", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   FileText,
   CalendarIcon,
   LogOut,
+  Target,
 } from "lucide-react";
 import Inbox from "./components/Inbox";
 import { Reports } from "./components/Reports";
@@ -22,6 +23,7 @@ import { Calendar } from "./components/Calendar";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
 import { Analytics } from "./components/Analytics";
+import { Goals } from "./components/Goals"; 
 
 import {
   AlertDialog,
@@ -45,6 +47,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isLogged, setIsLogged] = useState(false);
   const [loggedUser, setLoggedUser] = useState<{ nombre_usuario: string; correo: string } | null>(null);
+  const [activeGoalsCount, setActiveGoalsCount] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("usuario");
@@ -108,6 +111,7 @@ export default function App() {
     { id: "analytics", label: "Análisis", icon: BarChart3 },
     { id: "reports", label: "Reportes", icon: FileText },
     { id: "calendar", label: "Calendario", icon: CalendarIcon },
+    { id: "goals", label: "Metas", icon: Target },   
     { id: "settings", label: "Configuración", icon: Settings },
   ];
 
@@ -160,6 +164,13 @@ export default function App() {
               <p className="text-gray-500">Próximamente disponible</p>
             </div>
           </div>
+        );
+        case "goals":
+        return (
+          <Goals
+            userId={userId!}
+            onActiveGoalsChange={setActiveGoalsCount}  // ⬅ aquí conectamos el contador
+          />
         );
       case "inbox":
         return <Inbox userId={userId!} />;
