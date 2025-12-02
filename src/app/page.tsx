@@ -62,6 +62,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isLogged, setIsLogged] = useState(false);
   const [loggedUser, setLoggedUser] = useState<{ nombre_usuario: string; correo: string } | null>(null);
+  const [selectedAchievementId, setSelectedAchievementId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("usuario");
@@ -216,13 +217,16 @@ export default function App() {
           </div>
         );
 
-      case "goals":
-        return (
-          <Goals
-            userId={userId}
-            onActiveGoalsChange={setActiveGoals}   // 👈 aquí actualizamos el número del circulito
-          />
-        );
+     case "goals":
+  return (
+    <Goals
+      userId={userId}
+      selectedAchievementId={selectedAchievementId}      // 👈 nuevo
+      onSelectAchievement={setSelectedAchievementId}     // 👈 nuevo
+      onActiveGoalsChange={setActiveGoals}               // ya lo tenías
+    />
+  );
+
 
       case "calendar":
         return <Calendar userId={userId} />;

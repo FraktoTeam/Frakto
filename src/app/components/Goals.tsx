@@ -4,7 +4,13 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +31,10 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/utils/client";
+import { AchievementsCarousel, Achievement } from "./AchievementsCarousel";
 
 interface Goal {
   id: number;                  // id_meta
@@ -47,10 +55,17 @@ interface Portfolio {
 
 interface GoalsProps {
   userId: number;
+  selectedAchievementId: string | null;
+  onSelectAchievement: (id: string) => void;
   onActiveGoalsChange?: (count: number) => void;
 }
 
-export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
+export function Goals({
+  userId,
+  selectedAchievementId,
+  onSelectAchievement,
+  onActiveGoalsChange,
+}: GoalsProps) {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loadingPortfolios, setLoadingPortfolios] = useState(true);
   const [portfoliosError, setPortfoliosError] = useState<string | null>(null);
@@ -74,6 +89,12 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
     deadline: "",
     portfolio: "",
   });
+
+  // --- ESTADO PARA LOGROS ---
+  const [newUnlockedAchievement, setNewUnlockedAchievement] =
+    useState<Achievement | null>(null);
+  const [showAchievementNotification, setShowAchievementNotification] =
+    useState(false);
 
   // Cargar carteras reales
   useEffect(() => {
@@ -138,7 +159,7 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
           id: m.id_meta,
           name: m.nombre,
           targetAmount: Number(m.cantidad_objetivo),
-          currentAmount: 0, // se recalcula más abajo
+          currentAmount: 0, // se recalcula abajo
           deadline: m.fecha_limite,
           portfolioId: m.cartera_nombre,
           portfolioName: m.cartera_nombre ?? "Todas las carteras",
@@ -186,15 +207,32 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
     status: calculateStatus(goal),
   }));
 
-  // Contar metas activas
+  // Metas activas
   const activeGoalsCount = updatedGoals.filter(
     (g) => g.status === "active"
   ).length;
+
+  // Metas completadas (para logros)
+  const completedGoalsCount = updatedGoals.filter(
+    (g) => g.status === "completed"
+  ).length;
+
+  // Total ahorrado en metas (suma de currentAmount de todas las metas)
+  const totalSavingsInGoals = updatedGoals.reduce(
+    (sum, goal) => sum + goal.currentAmount,
+    0
+  );
 
   // Avisar al App para el badge del sidebar
   useEffect(() => {
     if (onActiveGoalsChange) onActiveGoalsChange(activeGoalsCount);
   }, [activeGoalsCount, onActiveGoalsChange]);
+
+  // Handler cuando AchievementsCarousel detecta un nuevo logro desbloqueado
+  const handleNewUnlock = (achievement: Achievement) => {
+    setNewUnlockedAchievement(achievement);
+    setShowAchievementNotification(true);
+  };
 
   // Validación
   const validateForm = () => {
@@ -260,7 +298,6 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
 
       if (error || !data) {
         console.error("Error creando meta:", error?.message);
-        // Aquí podrías mostrar un toast si tienes sistema de alertas
         return;
       }
 
@@ -301,7 +338,6 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
 
       if (error) {
         console.error("Error eliminando meta:", error.message);
-        // Aquí también podrías mostrar toast
       } else {
         setGoals((prev) => prev.filter((g) => g.id !== deletingGoal.id));
       }
@@ -372,11 +408,55 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
 
   return (
     <div className="space-y-6">
+      {/* Notificación de nuevo logro */}
+      {showAchievementNotification && newUnlockedAchievement && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right">
+          <Card className="border-green-600 bg-gradient-to-br from-green-50 to-emerald-50 shadow-xl max-w-sm">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-green-600 text-white rounded-full p-2">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-green-900 mb-1">¡Logro Desbloqueado!</h4>
+                  <p className="text-sm text-green-800 mb-1">
+                    {newUnlockedAchievement.name}
+                  </p>
+                  <p className="text-xs text-green-700">
+                    {newUnlockedAchievement.description}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAchievementNotification(false)}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Carrusel de logros */}
+      <AchievementsCarousel
+        completedGoalsCount={completedGoalsCount}
+        totalSavingsInGoals={totalSavingsInGoals}
+        selectedAchievementId={selectedAchievementId}
+        onSelectAchievement={onSelectAchievement}
+        onNewUnlock={handleNewUnlock}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2>Metas de Ahorro</h2>
           <p className="text-gray-500">Gestiona tus objetivos financieros</p>
+          {(loadingPortfolios || loadingGoals) && (
+            <p className="text-xs text-gray-400 mt-1">
+              Cargando datos de tus carteras y metas...
+            </p>
+          )}
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -406,8 +486,8 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
                 !loadingPortfolios &&
                 !portfoliosError && (
                   <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
-                    No tienes carteras creadas todavía. Crea al menos una cartera
-                    para poder asociarla a tus metas.
+                    No tienes carteras creadas todavía. Crea al menos una
+                    cartera para poder asociarla a tus metas.
                   </p>
                 )}
 
@@ -521,7 +601,7 @@ export function Goals({ userId, onActiveGoalsChange }: GoalsProps) {
           </CardHeader>
           <CardContent>
             <div className="font-bold text-green-600">
-              {updatedGoals.filter((g) => g.status === "completed").length}
+              {completedGoalsCount}
             </div>
             <p className="text-xs text-gray-500">Objetivos alcanzados</p>
           </CardContent>
