@@ -15,7 +15,7 @@ import {
   FileText,
   CalendarIcon,
   LogOut,
-  Target,            // 👈 icono metas
+  Target,           
 } from "lucide-react";
 import Inbox from "./components/Inbox";
 import { Reports } from "./components/Reports";
@@ -23,8 +23,10 @@ import { Calendar } from "./components/Calendar";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
 import { Analytics } from "./components/Analytics";
-import { Goals } from "./components/Goals";   // 👈 nuestro componente de metas
-
+import { Goals } from "./components/Goals"; 
+import { Badge } from "./components/ui/badge";
+import { User } from "lucide-react";
+import { Button } from "./components/ui/button";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -36,23 +38,33 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "./components/ui/alert-dialog";
+import { LandingPage } from "./components/LandingPage";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./components/ui/popover";
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
   const [previousView, setPreviousView] = useState("home");
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<number | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [registerError, setRegisterError] = useState("");
+  const [requireAuthMessage, setRequireAuthMessage] = useState(false);
   // metas activas → para el circulito azul
   const [activeGoals, setActiveGoals] = useState(0);
-
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // Estado para login/register
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isLogged, setIsLogged] = useState(false);
   const [loggedUser, setLoggedUser] = useState<{ nombre_usuario: string; correo: string } | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("usuario");
+    const saved = sessionStorage.getItem("usuario");
     if (saved) {
       const u = JSON.parse(saved);
       setLoggedUser(u);
@@ -63,25 +75,60 @@ export default function App() {
 
   // Si NO está logueado → mostrar LOGIN o REGISTER sin sidebar
   if (!isLogged) {
+    // Mostrar Landing Page primero
+    if (!showAuthScreen) {
+      return (
+        <LandingPage 
+          onLogin={() => {
+            window.history.replaceState(null, "", "/");
+            setAuthMode("login");
+            setShowAuthScreen(true);
+            
+            setTimeout(() => {
+              window.history.pushState(null, "", window.location.href);
+            }, 0);
+          }}
+          onRegister={() => {
+            window.history.replaceState(null, "", "/");
+            setAuthMode("register");
+            setShowAuthScreen(true);
+            
+            setTimeout(() => {
+              window.history.pushState(null, "", window.location.href);
+            }, 0);
+          }}
+        />
+      );
+    }
+
     return authMode === "login" ? (
       <Login
         onLogin={() => {
-          const userObj = JSON.parse(localStorage.getItem("usuario") || "{}");
+          const userObj = JSON.parse(sessionStorage.getItem("usuario") || "{}");
           setLoggedUser(userObj);
           setIsLogged(true);
           setUserId(userObj.id_usuario);
         }}
         onSwitchToRegister={() => setAuthMode("register")}
+        onBackToLanding={() => {
+          setShowAuthScreen(false);
+          setLoginError("");
+          setRequireAuthMessage(false);
+        }}
       />
     ) : (
       <Register
         onRegister={() => {
-          const newUserObj = JSON.parse(localStorage.getItem("usuario") || "{}");
+          const newUserObj = JSON.parse(sessionStorage.getItem("usuario") || "{}");
           setLoggedUser(newUserObj);
           setIsLogged(true);
           setUserId(newUserObj.id_usuario);
         }}
         onSwitchToLogin={() => setAuthMode("login")}
+        onBackToLanding={() => {
+          setShowAuthScreen(false);
+          setRegisterError("");
+        }}
       />
     );
   }
@@ -95,7 +142,7 @@ export default function App() {
 
   const handleLogout = () => {
     // Limpia el usuario guardado
-    localStorage.removeItem("usuario");
+    sessionStorage.removeItem("usuario");
 
     // Limpia estado de usuario
     setLoggedUser(null);
@@ -105,13 +152,30 @@ export default function App() {
     setActiveView("home");
   };
 
-  // Menú lateral (añadimos "goals")
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirm(false);
+  };
+
+   const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+   const handleLogoutConfirm = () => {
+    // Invalidar token de autenticación
+      setLoggedUser(null);
+      setUserId(null);
+      setIsLogged(false);
+      setAuthMode("login");
+      setActiveView("home");
+      setShowLogoutConfirm(false);
+  };
+  
+
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "portfolio", label: "Cartera", icon: Briefcase },
     { id: "fixexpenses", label: "Gastos Fijos", icon: Repeat },
     { id: "analytics", label: "Análisis", icon: BarChart3 },
-    { id: "goals", label: "Metas", icon: Target },           // 👈 solo una vez
     { id: "reports", label: "Reportes", icon: FileText },
     { id: "calendar", label: "Calendario", icon: CalendarIcon },
     { id: "settings", label: "Configuración", icon: Settings },
@@ -201,7 +265,7 @@ export default function App() {
             <img
               src="/logo.png"
               alt="Frakto"
-              className="hidden group-hover:block h-24 w-auto object-contain"
+              className="hidden group-hover:block h-11 w-35 object-contain mb-2"
             />
           </div>
           <p className="text-sm font-medium text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap mt-0">
@@ -274,73 +338,118 @@ export default function App() {
           </button>
         </div>
 
-        {/* Info usuario + Cerrar sesión */}
-        <div className="p-4 border-t border-gray-200 bg-white space-y-2">
-          {/* Tarjeta usuario */}
-          <div className="bg-green-50 rounded-lg p-4 flex items-center justify-center group-hover:justify-start transition-all duration-300">
-            <div className="opacity-100 group-hover:opacity-0 transition-opacity duration-300">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-green-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col ml-0 group-hover:ml-3 whitespace-nowrap overflow-hidden">
-              <p className="text-sm font-medium">
-                {loggedUser ? loggedUser.nombre_usuario : "Usuario"}
-              </p>
-              <p className="text-xs text-gray-500">
-                {loggedUser ? loggedUser.correo : "correo@frakto.com"}
-              </p>
-            </div>
-          </div>
+        {/* User Info - Popup */}
+        <div className="p-4 border-t border-gray-200">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="relative w-full bg-green-50 rounded-lg p-4 flex items-center justify-center gap-3 hover:bg-green-100 transition-colors">
+                {/* Icono usuario */}
+                <User className="h-6 w-6 text-green-700 flex-shrink-0" />
 
-          {/* Botón cerrar sesión con confirmación */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
-                <LogOut className="h-5 w-5 flex-shrink-0" />
-                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                  Cerrar sesión
-                </span>
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Estás a punto de cerrar sesión. Tendrás que volver a iniciar sesión para acceder a tus datos
-                  financieros.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={handleLogout}
+                {/* Email solo cuando el sidebar está expandido */}
+                <span
+                  className="
+                    hidden group-hover:inline
+                    opacity-0 group-hover:opacity-100
+                    transition-all duration-300
+                    whitespace-nowrap text-sm
+                  "
                 >
-                  Cerrar sesión
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  {loggedUser?.correo}
+                </span>
+
+                {/* Badge de metas en la esquina superior derecha */}
+                <Badge
+                  className="
+                    absolute
+                    -top-1
+                    -right-1
+                    min-w-[18px]
+                    h-[18px]
+                    flex items-center justify-center
+                    rounded-full
+                    bg-green-600
+                    text-[10px]
+                    px-1.5
+                  "
+                >
+                  {activeGoals}
+                </Badge>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent 
+              side="right" 
+              align="end" 
+              className="w-64 p-4 space-y-3"
+              sideOffset={8}
+            >
+              {/* User Email */}
+              <div className="border-b border-gray-200 pb-3">
+                <p className="text-xs text-gray-500">Conectado como</p>
+                <p className="text-sm truncate">{loggedUser?.correo}</p>
+              </div>
+
+              {/* Goals Button with Badge */}
+              <button
+                onClick={() => {
+                  setActiveView("goals");
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors relative ${
+                  activeView === "goals"
+                    ? "bg-green-50 text-green-600"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Target className="h-5 w-5 flex-shrink-0" />
+                <span className="whitespace-nowrap">Mis Metas</span>
+                {/* Badge contador de metas activas */}
+                <Badge className="ml-auto bg-green-600 hover:bg-green-600 min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                  {activeGoals}
+                </Badge>
+              </button>
+              
+              {/* Logout Button */}
+              <Button
+                onClick={handleLogoutClick}
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="whitespace-nowrap">Cerrar Sesión</span>
+              </Button>
+            </PopoverContent>
+          </Popover>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        {userId && <AlertBanner userId={userId} />}
+        {/* Content */}
         <div className="p-6">{renderView()}</div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de cerrar sesión. Tendrás que volver a iniciar sesión para acceder a tus datos financieros.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleLogoutCancel}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogoutConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Cerrar Sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

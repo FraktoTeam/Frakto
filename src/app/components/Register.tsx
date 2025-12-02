@@ -1,18 +1,19 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/cardLog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Eye, EyeOff, Check, X } from "lucide-react";
+import { Eye, EyeOff, Check, X, ArrowLeft} from "lucide-react";
 import { createClient } from "@/utils/client";
- // 👈 igual que en tu servicio
+import bcrypt from "bcryptjs";
 
 interface RegisterProps {
   onRegister?: (email: string, password: string) => void; // sigue siendo opcional
   onSwitchToLogin: () => void;
+  onBackToLanding: () => void;
 }
 
-export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
+export function Register({ onRegister, onSwitchToLogin, onBackToLanding }: RegisterProps) {
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState(""); // nombre_usuario
   const [password, setPassword] = useState("");
@@ -89,30 +90,16 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
 
     try {
       setLoading(true);
-
-      // 1️⃣ Comprobar si ya existe un usuario con ese correo
-      const { data: existingUser, error: existingError } = await createClient
-        .from("usuario")
-        .select("id_usuario")
-        .eq("correo", email)
-        .maybeSingle();
-
-      if (existingError) {
-        console.error(existingError);
-      }
-
-      if (existingUser) {
-        setGlobalError("Ya existe una cuenta con este correo electrónico.");
-        return;
-      }
-
-      // 2️⃣ Crear usuario en la tabla usuario
+      const salt = bcrypt.genSaltSync(10); // nivel de seguridad 10
+      const hashedPassword = bcrypt.hashSync(password, salt);
+      console.log("Hashed Password:", hashedPassword);
+      // 2️⃣ Crear usuario en tabla usuario
       const { data: newUser, error: insertError } = await createClient
         .from("usuario")
         .insert([
           {
             correo: email,
-            contrasena: password, // ⚠️ En producción sería mejor hash en el backend
+            contrasena: hashedPassword, // guardamos el hash
             nombre_usuario: nombre.trim(),
           },
         ])
@@ -120,24 +107,24 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
         .single();
 
       if (insertError) {
-        console.error(insertError);
-        setGlobalError("No se ha podido crear la cuenta. Inténtalo de nuevo.");
+        // Caso específico de clave única duplicada
+        if (insertError.code === "23505") {
+          setGlobalError(
+            "Correo electrónico no válido"
+          );
+        } else {
+          setGlobalError("No se ha podido crear la cuenta. Inténtalo de nuevo.");
+        }
+
         return;
       }
 
-      // 3️⃣ Guardar usuario (ejemplo: localStorage; cámbialo a tu gusto)
-      if (newUser) {
-        localStorage.setItem("usuario", JSON.stringify(newUser));
-      }
 
-      // 4️⃣ Avisar al padre si sigue usando la prop antigua
-      if (onRegister) {
-        onRegister(email, password);
-      }
+      // 3️⃣ Guardar usuario en sesión/localStorage si quieres
+      sessionStorage.setItem("usuario", JSON.stringify(newUser));
 
       setSuccessMessage("Cuenta creada correctamente. ¡Bienvenido/a! 🎉");
-      // Opcional: pasar directamente al login
-      // onSwitchToLogin();
+
     } catch (err: any) {
       console.error(err);
       setGlobalError("Ha ocurrido un error inesperado. Inténtalo más tarde.");
@@ -156,18 +143,26 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
+      <Card className="shadow-xl border-0 p-6">
+
+        {/* Back Button */}
+        {onBackToLanding && (
+          <button
+            onClick={onBackToLanding}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Volver al inicio</span>
+          </button>
+        )}
         {/* Logo/Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-block bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-2xl p-4 mb-4 shadow-lg">
-            <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        {/* Logo + Branding */}
+        <div className="text-center mb-0">
+          <div className="flex justify-center">
+            <img src="/logo.png" alt="Frakto Logo" className="h-11 w-35" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Frakto</h1>
-          <p className="text-gray-600">Gestión Financiera Inteligente</p>
         </div>
 
-        <Card className="shadow-xl border-0">
           <CardHeader className="space-y-1 text-center pb-6">
             <CardTitle className="text-2xl">Crear Cuenta</CardTitle>
             <CardDescription>

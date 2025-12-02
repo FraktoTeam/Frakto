@@ -1,18 +1,20 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/cardLog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { createClient } from "@/utils/client";
+import bcrypt from "bcryptjs";
 
 
 interface LoginProps {
   onLogin?: (email: string, password: string) => void; // opcional
   onSwitchToRegister: () => void;
+  onBackToLanding: () => void;
 }
 
-export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
+export function Login({ onLogin, onSwitchToRegister, onBackToLanding }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,18 +47,16 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
 
     setErrors(newErrors);
 
-    // Si hay errores de validación, no seguimos
     if (newErrors.email || newErrors.password) return;
 
     try {
       setLoading(true);
 
-      // 1️⃣ Buscar usuario por correo y contraseña
+      // 1️⃣ Buscar usuario solo por correo
       const { data: user, error } = await createClient
         .from("usuario")
-        .select("id_usuario, nombre_usuario, correo")
+        .select("id_usuario, nombre_usuario, correo, contrasena")
         .eq("correo", email)
-        .eq("contrasena", password)
         .maybeSingle();
 
       if (error) {
@@ -70,16 +70,24 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         return;
       }
 
-      // 2️⃣ Guardar usuario (ejemplo simple)
-      localStorage.setItem("usuario", JSON.stringify(user));
+      // 2️⃣ Comparar password con hash
+      const match = bcrypt.compareSync(password, user.contrasena);
+      if (!match) {
+        setGlobalError("Correo o contraseña incorrectos.");
+        return;
+      }
 
-      // 3️⃣ Avisar al componente padre si aún usa esa prop
+      // 3️⃣ Guardar usuario (sin el hash) en sesión
+      const { contrasena, ...userSafe } = user;
+      sessionStorage.setItem("usuario", JSON.stringify(userSafe));
+
       if (onLogin) {
         onLogin(email, password);
       }
 
-      // Aquí podrías redirigir al dashboard:
+      // Redirigir al dashboard si quieres
       // router.push("/dashboard");
+
     } catch (err: any) {
       console.error(err);
       setGlobalError("Ha ocurrido un error inesperado. Inténtalo más tarde.");
@@ -87,6 +95,7 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 flex items-center justify-center p-4 relative overflow-hidden">
@@ -98,106 +107,115 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Logo/Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-block bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-2xl p-4 mb-4 shadow-lg">
-            <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+
+      <Card className="shadow-xl border-0 p-6">
+
+        {/* Back Button */}
+        {onBackToLanding && (
+          <button
+            onClick={onBackToLanding}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Volver al inicio</span>
+          </button>
+        )}
+
+        {/* Logo + Branding */}
+        <div className="text-center mb-0">
+          <div className="flex justify-center">
+            <img src="/logo.png" alt="Frakto Logo" className="h-11 w-35" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Frakto</h1>
-          <p className="text-gray-600">Gestión Financiera Inteligente</p>
         </div>
 
-        <Card className="shadow-xl border-0">
-          <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-            <CardDescription>
-              Ingresa tus credenciales para acceder a tu cuenta
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Mensaje global */}
-              {globalError && (
-                <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-                  {globalError}
-                </div>
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-2xl font-semibold">Iniciar Sesión</CardTitle>
+          <CardDescription>
+            Ingresa tus credenciales para acceder a tu cuenta
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* Mensaje global */}
+            {globalError && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+                {globalError}
+              </div>
+            )}
+
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo electrónico</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="usuario@ejemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={errors.email ? "border-red-500" : ""}
+              />
+              {errors.email && (
+                <p className="text-sm text-red-600">{errors.email}</p>
               )}
+            </div>
 
-              {/* Email Field */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Correo electrónico</Label>
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="usuario@ejemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={errors.email ? "border-red-500" : ""}
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={errors.password ? "border-red-500" : ""}
                 />
-                {errors.email && (
-                  <p className="text-sm text-red-600">{errors.email}</p>
-                )}
-              </div>
-
-              {/* Password Field */}
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={errors.password ? "border-red-500" : ""}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-red-600">{errors.password}</p>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
-                {loading ? "Entrando..." : "Iniciar Sesión"}
-              </Button>
-
-              {/* Demo credentials info (puedes quitarlo si ya no lo usas) */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                <p className="text-blue-800 mb-1 font-medium">Puedes crear tu propia cuenta 👇</p>
-                <p className="text-blue-700 text-xs">
-                  O usa las credenciales de prueba que ya tengas configuradas.
-                </p>
-              </div>
-
-              {/* Register Link */}
-              <div className="text-center text-sm">
-                <span className="text-gray-500">¿No tienes una cuenta? </span>
                 <button
                   type="button"
-                  onClick={onSwitchToRegister}
-                  className="text-green-600 hover:text-green-700 font-medium"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                 >
-                  Regístrate aquí
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+              {errors.password && (
+                <p className="text-sm text-red-600">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={loading}
+            >
+              {loading ? "Entrando..." : "Iniciar Sesión"}
+            </Button>
+
+            {/* Register Prompt */}
+            <div className="text-center text-sm">
+              <span className="text-gray-500">¿No tienes una cuenta? </span>
+              <button
+                type="button"
+                onClick={onSwitchToRegister}
+                className="text-green-600 hover:text-green-700 font-medium"
+              >
+                Regístrate aquí
+              </button>
+            </div>
+
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+
     </div>
   );
 }
