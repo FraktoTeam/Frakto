@@ -67,12 +67,10 @@ jest.mock('lucide-react', () => ({
   Sparkles: () => React.createElement('span', null, 'Sparkles'),
 }));
 
-// Mutable module-level mock data
 let mockCarteras: any[] = [];
 let mockGoals: any[] = [];
 let mockDeleteResult: any = { error: null };
 
-// Top-level mock for createClient that reads the mutable variables above
 jest.mock('@/utils/client', () => ({
   createClient: {
     from: (table: string) => {
@@ -91,7 +89,6 @@ jest.mock('@/utils/client', () => ({
           }),
         }),
         delete: () => {
-          // Support chained .eq().eq() and perform side-effect to remove goal from mockGoals
           let lastKey: any = null;
           let lastValue: any = null;
           return {
@@ -100,7 +97,6 @@ jest.mock('@/utils/client', () => ({
               lastValue = v;
               return {
                 eq: (_k2: string, _v2: any) => {
-                  // If deleting from meta_ahorro and the first eq was id_meta, remove matching mock goal
                   if (table === 'meta_ahorro' && lastKey === 'id_meta') {
                     mockGoals = mockGoals.filter(
                       (g: any) => (g.id_meta ?? g.id) !== lastValue,
