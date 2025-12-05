@@ -31,7 +31,7 @@ interface AchievementsCarouselProps {
   onNewUnlock?: (achievement: Achievement) => void;
 }
 
-const PREDEFINED_ACHIEVEMENTS: Omit<Achievement, "unlocked">[] = [
+export const PREDEFINED_ACHIEVEMENTS: Omit<Achievement, "unlocked">[] = [
   {
     id: "goals_1",
     name: "Primer Paso",

@@ -38,6 +38,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "./components/ui/alert-dialog";
+import { Award, Trophy, Star, Medal, Crown, Sparkles } from "lucide-react";
+import { PREDEFINED_ACHIEVEMENTS } from "./components/AchievementsCarousel";
 import { LandingPage } from "./components/LandingPage";
 
 import {
@@ -64,6 +66,7 @@ export default function App() {
   const [loggedUser, setLoggedUser] = useState<{ nombre_usuario: string; correo: string } | null>(null);
   const [selectedAchievementId, setSelectedAchievementId] = useState<string | null>(null);
 
+
   useEffect(() => {
     const saved = sessionStorage.getItem("usuario");
     if (saved) {
@@ -73,6 +76,16 @@ export default function App() {
       setIsLogged(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedAchievement = localStorage.getItem("selectedAchievement");
+      if (savedAchievement) {
+        setSelectedAchievementId(savedAchievement);
+      }
+    }
+  }, []);
+
 
   // Si NO está logueado → mostrar LOGIN o REGISTER sin sidebar
   if (!isLogged) {
@@ -141,18 +154,6 @@ export default function App() {
     setActiveView("portfolio");
   };
 
-  const handleLogout = () => {
-    // Limpia el usuario guardado
-    sessionStorage.removeItem("usuario");
-
-    // Limpia estado de usuario
-    setLoggedUser(null);
-    setUserId(null);
-    setIsLogged(false);
-    setAuthMode("login");
-    setActiveView("home");
-  };
-
   const handleLogoutCancel = () => {
     setShowLogoutConfirm(false);
   };
@@ -162,15 +163,42 @@ export default function App() {
   };
 
    const handleLogoutConfirm = () => {
+      sessionStorage.removeItem("usuario");
     // Invalidar token de autenticación
       setLoggedUser(null);
       setUserId(null);
       setIsLogged(false);
+      setShowAuthScreen(false);
       setAuthMode("login");
       setActiveView("home");
       setShowLogoutConfirm(false);
   };
-  
+
+  const getAchievementIcon = (iconType: string | null) => {
+    const className = "h-4 w-4 text-green-600";
+
+    switch (iconType) {
+      case "award": return <Award className={className} />;
+      case "trophy": return <Trophy className={className} />;
+      case "star": return <Star className={className} />;
+      case "medal": return <Medal className={className} />;
+      case "crown": return <Crown className={className} />;
+      case "sparkles": return <Sparkles className={className} />;
+      default:
+        return null;
+    }
+  };
+
+  const handleSelectAchievement = (achievementId: string | null) => {
+    setSelectedAchievementId(achievementId);
+
+    if (achievementId) {
+      localStorage.setItem("selectedAchievement", achievementId);
+    } else {
+      localStorage.removeItem("selectedAchievement");
+    }
+  };
+
 
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
@@ -222,7 +250,7 @@ export default function App() {
     <Goals
       userId={userId}
       selectedAchievementId={selectedAchievementId}      // 👈 nuevo
-      onSelectAchievement={setSelectedAchievementId}     // 👈 nuevo
+      onSelectAchievement={handleSelectAchievement}     // 👈 nuevo
       onActiveGoalsChange={setActiveGoals}               // ya lo tenías
     />
   );
@@ -348,7 +376,9 @@ export default function App() {
             <PopoverTrigger asChild>
               <button className="relative w-full bg-green-50 rounded-lg p-4 flex items-center justify-center gap-3 hover:bg-green-100 transition-colors">
                 {/* Icono usuario */}
-                <User className="h-6 w-6 text-green-700 flex-shrink-0" />
+                <div className="relative flex items-center">
+                  <User className="h-6 w-6 text-green-700 flex-shrink-0" />
+                </div>
 
                 {/* Email solo cuando el sidebar está expandido */}
                 <span
@@ -379,6 +409,16 @@ export default function App() {
                 >
                   {activeGoals}
                 </Badge>
+                {/* Badge del logro seleccionado - esquina superior izquierda */}
+                {selectedAchievementId && (
+                  <div className="absolute -top-1 -left-1 bg-green-600 rounded-full h-5 w-5 flex items-center justify-center">
+                    <div className="bg-white rounded-full p-[2px]">
+                      {getAchievementIcon(
+                        PREDEFINED_ACHIEVEMENTS.find(a => a.id === selectedAchievementId)?.icon || null
+                      )}
+                    </div>
+                  </div>
+                )}
               </button>
             </PopoverTrigger>
             <PopoverContent 
