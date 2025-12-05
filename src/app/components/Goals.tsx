@@ -45,6 +45,7 @@ interface Goal {
   portfolioId: string | null;  // cartera_nombre o null
   portfolioName: string;
   status: "active" | "completed" | "expired";
+  saldoInicial: number;      // saldo inicial al crear la meta
 }
 
 interface Portfolio {
@@ -144,7 +145,7 @@ export function Goals({
 
         const { data, error } = await createClient
           .from("meta_ahorro")
-          .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre")
+          .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre, cantidad_acumulada, saldo_inicial")
           .eq("id_usuario", userId)
           .order("fecha_limite", { ascending: true });
 
@@ -159,11 +160,12 @@ export function Goals({
           id: m.id_meta,
           name: m.nombre,
           targetAmount: Number(m.cantidad_objetivo),
-          currentAmount: 0, // se recalcula abajo
+          currentAmount: Number(m.cantidad_acumulada), // ✔️ ESTA LINEA
           deadline: m.fecha_limite,
           portfolioId: m.cartera_nombre,
           portfolioName: m.cartera_nombre ?? "Todas las carteras",
           status: "active",
+          saldoInicial: Number(m.saldo_inicial), 
         }));
 
         setGoals(mapped);
@@ -190,22 +192,39 @@ export function Goals({
   };
 
   // Estado de la meta según dinero real + fecha
-  const calculateStatus = (goal: Goal): "active" | "completed" | "expired" => {
-    const today = new Date();
-    const deadline = new Date(goal.deadline);
-    const currentAmount = getCurrentAmount(goal.portfolioId);
+const calculateStatus = (goal: Goal): "active" | "completed" | "expired" => {
+  const today = new Date();
+  const deadline = new Date(goal.deadline);
+  const currentAmount = goal.currentAmount;
 
-    if (currentAmount >= goal.targetAmount) return "completed";
-    if (deadline < today) return "expired";
-    return "active";
-  };
+  // 1. Si ya completó la meta → siempre "completed"
+  if (currentAmount >= goal.targetAmount) {
+    return "completed";
+  }
 
-  // Metas actualizadas con currentAmount/status
-  const updatedGoals: Goal[] = goals.map((goal) => ({
+  // 2. Si no la completó y la fecha límite pasó → "expired"
+  if (deadline < today) {
+    return "expired";
+  }
+
+  // 3. En cualquier otro caso → activa
+  return "active";
+};
+
+
+const updatedGoals: Goal[] = goals.map((goal) => {
+  const saldoActual = getCurrentAmount(goal.portfolioId);
+  const progreso = saldoActual - goal.saldoInicial; 
+
+  return {
     ...goal,
-    currentAmount: getCurrentAmount(goal.portfolioId),
-    status: calculateStatus(goal),
-  }));
+    currentAmount: progreso, 
+    status: calculateStatus({
+      ...goal,
+      currentAmount: progreso,
+    }),
+  };
+});
 
   // Metas activas
   const activeGoalsCount = updatedGoals.filter(
@@ -291,9 +310,11 @@ export function Goals({
             cantidad_objetivo: parseFloat(newGoalAmount),
             fecha_limite: newGoalDeadline,
             cartera_nombre: portfolioId,
+            cantidad_acumulada: 0, // Inicialmente 0
+            saldo_inicial: getCurrentAmount(portfolioId),
           },
         ])
-        .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre")
+        .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre, cantidad_acumulada, saldo_inicial")
         .maybeSingle();
 
       if (error || !data) {
@@ -305,11 +326,12 @@ export function Goals({
         id: data.id_meta,
         name: data.nombre,
         targetAmount: Number(data.cantidad_objetivo),
-        currentAmount: getCurrentAmount(portfolioId),
+        currentAmount: 0,
         deadline: data.fecha_limite,
         portfolioId: data.cartera_nombre,
         portfolioName,
         status: "active",
+        saldoInicial: Number(data.saldo_inicial), 
       };
 
       setGoals((prev) => [...prev, created]);
