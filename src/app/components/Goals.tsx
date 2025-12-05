@@ -371,10 +371,11 @@ const updatedGoals: Goal[] = goals.map((goal) => {
     }
   };
 
-  const handleDeleteClick = (goal: Goal) => {
-    setDeletingGoal(goal);
-    setIsDeleteDialogOpen(true);
-  };
+const handleDeleteClick = (goal: Goal) => {
+  if (goal.status === "completed") return; 
+  setDeletingGoal(goal);
+  setIsDeleteDialogOpen(true);
+};
 
   const handleDeleteCancel = () => {
     setIsDeleteDialogOpen(false);
@@ -700,14 +701,16 @@ const updatedGoals: Goal[] = goals.map((goal) => {
                       </div>
                       {getStatusBadge(goal.status)}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteClick(goal)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {goal.status !== "completed" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(goal)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
