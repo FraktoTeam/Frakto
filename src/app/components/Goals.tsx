@@ -67,6 +67,7 @@ export function Goals({
   onSelectAchievement,
   onActiveGoalsChange,
 }: GoalsProps) {
+
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [loadingPortfolios, setLoadingPortfolios] = useState(true);
   const [portfoliosError, setPortfoliosError] = useState<string | null>(null);
