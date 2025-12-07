@@ -25,3 +25,18 @@ class MockNotification {
 	}
 }
 (global as any).Notification = MockNotification;
+
+// Mock window.matchMedia for responsive components that check viewport size
+Object.defineProperty(window, "matchMedia", {
+	writable: true,
+	value: jest.fn().mockImplementation((query: string) => ({
+		matches: false,
+		media: query,
+		onchange: null,
+		addListener: jest.fn(),
+		removeListener: jest.fn(),
+		addEventListener: jest.fn(),
+		removeEventListener: jest.fn(),
+		dispatchEvent: jest.fn(),
+	})),
+});

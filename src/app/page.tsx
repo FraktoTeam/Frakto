@@ -283,6 +283,10 @@ export default function App() {
 
   // Si está logueado → mostrar app completa
   return (
+    <div className="relative w-full h-full">
+
+    {/* 🔥 Montar las alertas globales aquí */}
+    <AlertBanner userId={userId} />
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-20 hover:w-64 bg-white border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col group">
@@ -494,6 +498,7 @@ export default function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
     </div>
   );
 }
