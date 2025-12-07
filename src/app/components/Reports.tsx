@@ -437,7 +437,7 @@ async function generarPieChart(categories: string[], percentages: number[]): Pro
       });
        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
           const i = new Image();
-          i.src = "/logo.png";
+          i.src = "/logo_reporte.png";
           i.onload = () => {
             doc.addImage(i, "PNG", 32, 70, 150, 150);
             resolve(i);

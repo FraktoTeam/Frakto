@@ -54,6 +54,17 @@ export function FixedExpenses({ userId }: FixedExpensesProps) {
   const [confirmMessage, setConfirmMessage] = useState("");
 
   const [formErrors, setFormErrors] = useState<string[]>([]);
+   const [isMobile, setIsMobile] = useState(false);
+    
+      useEffect(() => {
+        const mq = window.matchMedia("(max-width: 480px)");
+    
+        const handleChange = () => setIsMobile(mq.matches);
+        handleChange();
+    
+        mq.addEventListener("change", handleChange);
+        return () => mq.removeEventListener("change", handleChange);
+      }, []);
 
   useEffect(() => {
     const fetchPortfolios = async () => {
@@ -352,8 +363,8 @@ export function FixedExpenses({ userId }: FixedExpensesProps) {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Añadir Gasto Fijo
-            </Button>
+             {isMobile ? "Gasto Fijo" : "Añadir Gasto Fijo"}
+            </Button> 
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"; 
 import { 
   Briefcase, 
   TrendingUp, 
@@ -21,6 +22,17 @@ interface LandingPageProps {
 }
 
 export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
+    const [isMobile, setIsMobile] = useState(false);
+    
+      useEffect(() => {
+        const mq = window.matchMedia("(max-width: 480px)");
+    
+        const handleChange = () => setIsMobile(mq.matches);
+        handleChange();
+    
+        mq.addEventListener("change", handleChange);
+        return () => mq.removeEventListener("change", handleChange);
+      }, []); 
   const features = [
     {
       icon: Briefcase,
@@ -69,9 +81,9 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
       <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Frakto Logo" className="h-11 w-35" />
+              <img src="/logo.png" alt="Frakto Logo" className={`${isMobile ? "h-8 w-24" : "h-11 w-35"}`} />
             </div>
-          <div className="flex items-center gap-3">
+          <div className={`${isMobile ? "gap-1" : "gap-3"} flex items-center`}>
             <Button 
               onClick={onLogin}
               variant="outline"
@@ -107,7 +119,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
             <Button 
               onClick={onRegister}
               size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-6 text-lg"
+              className={`${isMobile ? "px-4 py-2 text-sm" : "px-8 py-6 text-lg"} bg-green-600 hover:bg-green-700 text-white `}
             >
               Comenzar Gratis
             </Button>
@@ -115,7 +127,7 @@ export function LandingPage({ onLogin, onRegister }: LandingPageProps) {
               onClick={onLogin}
               size="lg"
               variant="outline"
-              className="border-gray-300 px-8 py-6 text-lg"
+              className={`${isMobile ? "px-4 py-2 text-sm" : "px-8 py-6 text-lg"} border-gray-300`}
             >
               Ya tengo cuenta
             </Button>

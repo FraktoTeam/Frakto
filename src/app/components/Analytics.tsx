@@ -400,15 +400,6 @@ export function Analytics({ userId }: AnalyticsProps) {
     <div className="space-y-6">
       {/* Header con selector de periodo y cartera - ESTA PARTE ES VISIBLE SIEMPRE */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2>Análisis Financiero</h2>
-          <p className="text-gray-500">
-            Estadísticas y visualización de tus finanzas
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Datos reales obtenidos de tus carteras
-          </p>
-        </div>
 
         <div className="flex flex-col md:flex-row gap-3">
           {/* Selector cartera */}
@@ -611,11 +602,11 @@ export function Analytics({ userId }: AnalyticsProps) {
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={categoryData}
+                        data={categoryData as any}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percentage }) => `${name} (${percentage}%)`}
+                        label={({ name, payload }) => `${name} (${payload.percentage}%)`}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"

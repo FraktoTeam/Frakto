@@ -200,7 +200,7 @@ export function Home({ onSelectPortfolio, userId }: HomeProps) {
                     </div>
 
                     {/* Importe */}
-                    <div className="text-right">
+                    <div className="text-right pl-2">
                       <p
                         className={`font-semibold ${
                           tipo === "ingreso" ? "text-green-600" : "text-red-600"
