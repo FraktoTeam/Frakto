@@ -5,26 +5,22 @@ import { getCarteras } from "@/services/carterasService";
 import { getUltimosMovimientosUsuario } from "@/services/transaccionService";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
-import { Eye, TrendingUp, TrendingDown, DollarSign, Wallet } from "lucide-react";
-import { WalletMinimal, Home as HomeIcon, BarChart2, Settings, CreditCard } from "lucide-react";
-
+import { Eye, TrendingUp, DollarSign, Wallet } from "lucide-react";
 
 interface HomeProps {
   onSelectPortfolio: (portfolioId: number) => void;
-  userId: number
+  userId: number;
 }
 
-export function Home({ onSelectPortfolio }: HomeProps) {
-
+export function Home({ onSelectPortfolio, userId }: HomeProps) {
   const [wallets, setWallets] = useState<{ nombre: string; saldo: number; id_usuario: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [movements, setMovements] = useState<any[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(true);
-  const [userId, setUserId] = useState(1);
-
 
   useEffect(() => {
+    if (!userId) return; // por si acaso
+
     async function fetchWallets() {
       try {
         const data = await getCarteras(userId);
@@ -39,6 +35,8 @@ export function Home({ onSelectPortfolio }: HomeProps) {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
+
     async function fetchMovements() {
       try {
         const { data, error } = await getUltimosMovimientosUsuario(userId);
@@ -62,10 +60,10 @@ export function Home({ onSelectPortfolio }: HomeProps) {
 
   const totalBalanceValue = wallets.reduce((acc, w) => acc + Number(w.saldo), 0);
   const totalBalance = {
-  title: "Balance Total",
-  value: `${totalBalanceValue.toLocaleString("es-ES", { minimumFractionDigits: 2 })}€`,
-  change: "+0.0%",
-  trend: "up" as const,
+    title: "Balance Total",
+    value: `${totalBalanceValue.toLocaleString("es-ES", { minimumFractionDigits: 2 })}€`,
+    change: "+0.0%",
+    trend: "up" as const,
   };
 
   return (
@@ -92,47 +90,56 @@ export function Home({ onSelectPortfolio }: HomeProps) {
       </Card>
 
       {/* Scroll horizontal nativo, sin carousel */}
-<div className="overflow-x-auto no-scrollbar scroll-smooth pb-2">
-  <div className="carousel-scroll flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth p-1">
-    {wallets.length === 0 ? (
-      <p className="text-gray-500 px-4">No hay carteras registradas aún.</p>
-    ) : (
-      wallets.map((wallet, index) => (
-        <div key={`${wallet.nombre}-${wallet.id_usuario}`} className="flex-none w-[min(280px,80%)] md:w-1/2 lg:w-1/3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm">{wallet.nombre}</CardTitle>
-              <Wallet className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Balance</p>
-                <p className="text-2xl font-bold">
-                  {Number(wallet.saldo).toLocaleString("es-ES", { minimumFractionDigits: 2 })}€
-                </p>
-              </div>
-
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <TrendingUp className="h-3 w-3 text-green-600" />
-                <span className="text-green-600">+0.0%</span>
-                <span>vs mes anterior</span>
-              </p>
-
-              <Button
-                variant="outline"
-                className="w-full gap-2 mt-2"
-                onClick={() => onSelectPortfolio(index + 1)}
+      <div className="overflow-x-auto no-scrollbar scroll-smooth pb-2">
+        <div className="carousel-scroll flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth p-1">
+          {wallets.length === 0 ? (
+            <p className="text-gray-500 px-4">
+              {loading ? "Cargando carteras..." : "No hay carteras registradas aún."}
+            </p>
+          ) : (
+            wallets.map((wallet, index) => (
+              <div
+                key={`${wallet.nombre}-${wallet.id_usuario}`}
+                className="flex-none w-[min(280px,80%)] md:w-1/2 lg:w-1/3"
               >
-                <Eye className="h-4 w-4" />
-                Ver Cartera
-              </Button>
-            </CardContent>
-          </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm">{wallet.nombre}</CardTitle>
+                    <Wallet className="h-4 w-4 text-gray-500" />
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Balance</p>
+                      <p className="text-2xl font-bold">
+                        {Number(wallet.saldo).toLocaleString("es-ES", {
+                          minimumFractionDigits: 2,
+                        })}
+                        €
+                      </p>
+                    </div>
+
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                      <TrendingUp className="h-3 w-3 text-green-600" />
+                      <span className="text-green-600">+0.0%</span>
+                      <span>vs mes anterior</span>
+                    </p>
+
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 mt-2"
+                      onClick={() => onSelectPortfolio(index + 1)}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Ver Cartera
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            ))
+          )}
         </div>
-      ))
-    )}
-  </div>
-</div>
+      </div>
+
       {/* Últimos 10 Movimientos */}
       <Card>
         <CardHeader>
@@ -151,8 +158,7 @@ export function Home({ onSelectPortfolio }: HomeProps) {
               </p>
             ) : (
               movements.slice(0, 10).map((movimiento, index) => {
-                const tipo =
-                  movimiento.importe > 0 ? "ingreso" : "gasto";
+                const tipo = movimiento.importe > 0 ? "ingreso" : "gasto";
                 const importeAbsoluto = Math.abs(movimiento.importe);
                 const fecha = new Date(movimiento.fecha);
                 const fechaFormateada = fecha.toLocaleDateString("es-ES", {
@@ -173,31 +179,39 @@ export function Home({ onSelectPortfolio }: HomeProps) {
                         {movimiento.cartera_nombre && (
                           <>
                             {" · "}
-                            <span className="text-green-600">{movimiento.cartera_nombre}</span>
+                            <span className="text-green-600">
+                              {movimiento.cartera_nombre}
+                            </span>
                           </>
                         )}
                       </p>
                       <p className="text-sm text-gray-500">
                         {tipo === "ingreso" ? "Ingreso" : "Gasto"}
-                        {tipo === "ingreso" ? "" : movimiento.categoria_nombre ? ` · ${movimiento.categoria_nombre.charAt(0).toUpperCase() + movimiento.categoria_nombre.slice(1)}` : ""}
+                        {tipo === "ingreso"
+                          ? ""
+                          : movimiento.categoria_nombre
+                          ? ` · ${
+                              movimiento.categoria_nombre.charAt(0).toUpperCase() +
+                              movimiento.categoria_nombre.slice(1)
+                            }`
+                          : ""}
                         {fechaFormateada ? ` · ${fechaFormateada}` : ""}
                       </p>
                     </div>
 
                     {/* Importe */}
-                    <div className="text-right">
+                    <div className="text-right pl-2">
                       <p
                         className={`font-semibold ${
-                          tipo === "ingreso"
-                            ? "text-green-600"
-                            : "text-red-600"
+                          tipo === "ingreso" ? "text-green-600" : "text-red-600"
                         }`}
                       >
                         {tipo === "ingreso" ? "+" : "-"}
                         {importeAbsoluto.toLocaleString("es-ES", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
-                        })}€
+                        })}
+                        €
                       </p>
                     </div>
                   </div>

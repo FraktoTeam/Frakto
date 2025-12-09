@@ -27,7 +27,11 @@ interface FixedExpense {
   lastGenerated?: string;
 }
 
-export function FixedExpenses() {
+interface FixedExpensesProps {
+  userId: number;
+}
+
+export function FixedExpenses({ userId }: FixedExpensesProps) {
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
 
 
@@ -42,7 +46,6 @@ export function FixedExpenses() {
   const [frequency, setFrequency] = useState("");
   const [startDate, setStartDate] = useState("");
   const [description, setDescription] = useState("");
-  const [userId, setUserId] = useState(1);
 
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<FixedExpense | null>(null);
@@ -51,6 +54,17 @@ export function FixedExpenses() {
   const [confirmMessage, setConfirmMessage] = useState("");
 
   const [formErrors, setFormErrors] = useState<string[]>([]);
+   const [isMobile, setIsMobile] = useState(false);
+    
+      useEffect(() => {
+        const mq = window.matchMedia("(max-width: 480px)");
+    
+        const handleChange = () => setIsMobile(mq.matches);
+        handleChange();
+    
+        mq.addEventListener("change", handleChange);
+        return () => mq.removeEventListener("change", handleChange);
+      }, []);
 
   useEffect(() => {
     const fetchPortfolios = async () => {
@@ -89,7 +103,7 @@ export function FixedExpenses() {
     };
 
     fetchFixedExpenses();
-  }, []);
+  }, [userId]);
 
 
   const validateForm = (portfolioId: string, amt: string, cat: string, freq: string, date: string, desc: string) => {
@@ -156,7 +170,7 @@ export function FixedExpenses() {
     const errors = validateForm(selectedPortfolioId, amount, categoryLower, frequency, startDate, description);
     console.log("Creando gasto con atributos: ", {
       cartera_nombre: selectedPortfolioId,
-      id_usuario: 1,
+      id_usuario: userId,
       categoria_nombre: categoryLower,
       importe: parseFloat(amount),
       fecha_inicio: startDate,
@@ -172,7 +186,7 @@ export function FixedExpenses() {
     try {
       const { data, error } = await createGastoFijo({
         cartera_nombre: portfolio.nombre,
-        id_usuario: 1, 
+        id_usuario: userId, 
         categoria_nombre: categoryLower,
         importe: parseFloat(amount),
         fecha_inicio: startDate,
@@ -231,7 +245,7 @@ export function FixedExpenses() {
     const errors = validateForm(selectedPortfolioId, amount, categoryLower, frequency, startDate, description);
     console.log("Creando gasto con atributos: ", {
       cartera_nombre: selectedPortfolioId,
-      id_usuario: 1,
+      id_usuario: userId,
       categoria_nombre: categoryLower,
       importe: parseFloat(amount),
       fecha_inicio: startDate,
@@ -349,8 +363,8 @@ export function FixedExpenses() {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Añadir Gasto Fijo
-            </Button>
+             {isMobile ? "Gasto Fijo" : "Añadir Gasto Fijo"}
+            </Button> 
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>

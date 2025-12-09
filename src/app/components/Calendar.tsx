@@ -70,9 +70,13 @@ interface FixedOccurrence {
   amount: number;
 }
 
-type CalendarProps = { userId?: number };
+interface CalendarProps {
+  userId: number;
+}
 
-export function Calendar({ userId = 1 }: CalendarProps) {
+
+
+export function Calendar({ userId }: CalendarProps) {
   const now = new Date();
 
   // --- HOOKS: siempre dentro del componente ---
@@ -90,7 +94,18 @@ export function Calendar({ userId = 1 }: CalendarProps) {
   // ⬇️ ESTOS DOS ESTABAN FUERA (causaban el error):
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseSvc[]>([]);
   const [fixedByDay, setFixedByDay] = useState<Map<number, FixedOccurrence[]>>(new Map());
-
+  const [isMobile, setIsMobile] = useState(false);
+  
+    useEffect(() => {
+      const mq = window.matchMedia("(max-width: 480px)");
+  
+      const handleChange = () => setIsMobile(mq.matches);
+      handleChange();
+  
+      mq.addEventListener("change", handleChange);
+      return () => mq.removeEventListener("change", handleChange);
+    }, []);
+    
   // helpers fechas
   const monthNames = [
     "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -400,24 +415,41 @@ export function Calendar({ userId = 1 }: CalendarProps) {
         <button
           key={day}
           onClick={() => handleDayClick(day)}
-          className={`aspect-square p-2 rounded-lg transition-all hover:bg-gray-100 ${
-            isCurrentDay ? "border-2 border-green-600 bg-green-50" : "border border-gray-200"
-          }`}
+          className={`
+            ${isMobile ? "aspect-10 p-1" : "aspect-square p-2"} 
+            p-1 sm:p-2 
+            rounded-lg 
+            transition-all 
+            hover:bg-gray-100 
+            ${isCurrentDay ? "border-2 border-green-600 bg-green-50" : "border border-gray-200"}
+          `}
         >
           <div className="flex flex-col items-center justify-between h-full">
-            <span className={`text-sm ${isCurrentDay ? "font-bold text-green-600" : ""}`}>
+            <span
+              className={`
+                text-xs sm:text-sm
+                ${isCurrentDay ? "font-bold text-green-600" : ""}
+              `}
+            >
               {day}
             </span>
 
             {hasAny && (
-              <div className="flex gap-1 mt-1">
-                {hasIncome && <div className="w-2 h-2 rounded-full bg-green-600" title="Ingresos" />}
-                {hasExpense && <div className="w-2 h-2 rounded-full bg-red-600" title="Gastos" />}
-                {hasFixed && <div className="w-2 h-2 rounded-full bg-blue-600" title="Gasto fijo" />}
+              <div className="flex gap-0.5 sm:gap-1 mt-0.5 sm:mt-1">
+                {hasIncome && (
+                  <div className={` ${isMobile ? "w-1 h-1 sm:w-1.5 sm:h-1.5" : "w-1.5 h-1.5 sm:w-2 sm:h-2"}  rounded-full bg-green-600`} title="Ingresos" />
+                )}
+                {hasExpense && (
+                  <div className={` ${isMobile ? "w-1 h-1 sm:w-1.5 sm:h-1.5" : "w-1.5 h-1.5 sm:w-2 sm:h-2"}  rounded-full bg-red-600`} title="Gastos" />
+                )}
+                {hasFixed && (
+                  <div className={` ${isMobile ? "w-1 h-1 sm:w-1.5 sm:h-1.5" : "w-1.5 h-1.5 sm:w-2 sm:h-2"}  rounded-full bg-blue-600`} title="Gasto fijo" />
+                )}
               </div>
             )}
           </div>
         </button>
+
       );
     }
 
@@ -438,7 +470,7 @@ export function Calendar({ userId = 1 }: CalendarProps) {
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            <CardTitle className="text-green-600 text-xl">{monthNames[selectedMonth]} {selectedYear}</CardTitle>
+            <CardTitle >{monthNames[selectedMonth]} {selectedYear}</CardTitle>
 
             <Button
               variant="outline"

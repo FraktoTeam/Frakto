@@ -39,12 +39,14 @@ export default function AlertBanner({ userId }: { userId: number | null }) {
       }
     })();
 
+    console.log("🔔 Suscribiéndose a alertas para userId:", userId);
     // Suscribirse a realtime
     const channel = subscribeAlertasUsuario(userId, (payload) => {
+      console.log("📡 EVENTO REALTIME RECIBIDO:", payload);   // 👈 LOG CLAVE
       if (payload?.eventType === "INSERT" || payload?.eventType === "UPDATE") {
         const newAlert = payload.new as Alerta;
         setAlerta(newAlert);
-
+          console.log("📡 Ahora recibido", payload);
         try {
           toast(newAlert.mensaje, {
             icon: newAlert.estado_alerta === "activa" ? "⚠️" : "✅",

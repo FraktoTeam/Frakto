@@ -15,6 +15,8 @@ import { createIngreso, createGasto, evaluarRiesgoGastoIngreso, calcularSaldoCar
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { DollarSign, ShoppingCart, Edit } from "lucide-react";
+import { Analytics } from "./Analytics"; 
+
 
 interface PortfolioItem {
   id: number;
@@ -33,10 +35,9 @@ interface PortfolioProps {
   onNavigateBack?: (view: string) => void;
 }
 
-export function Portfolio({ selectedId, previousView = "home", onNavigateBack }: PortfolioProps) {
+export function Portfolio({ userId, selectedId, previousView = "home", onNavigateBack }: PortfolioProps) {
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(1)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingPortfolio, setEditingPortfolio] = useState<PortfolioItem | null>(null);
   const [newName, setNewName] = useState("");
@@ -81,6 +82,17 @@ export function Portfolio({ selectedId, previousView = "home", onNavigateBack }:
     date: "",
     category: "",
   });
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 480px)");
+
+    const handleChange = () => setIsMobile(mq.matches);
+    handleChange();
+
+    mq.addEventListener("change", handleChange);
+    return () => mq.removeEventListener("change", handleChange);
+  }, []);
 
   async function fetchWallets() {
     try {
@@ -629,19 +641,25 @@ if (selectedPortfolio) {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
+          <div className="space-x-1">
             <h2>{selectedPortfolio.name}</h2>
             <p className="text-gray-500">Detalles de la cartera</p>
           </div>
         </div>
 
         {/* NUEVO: botones de Ingreso y Gasto */}
-        <div className="flex gap-2">
+        <div
+            className={
+              isMobile
+                ? "flex flex-col gap-2 w-full"
+                : "flex flex-row gap-2"
+            }
+          >
           <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
-                <DollarSign className="h-4 w-4" />
-                Añadir Ingreso
+              <Button className="gap-1">
+                {isMobile ? "": <DollarSign className="h-4 w-4" /> }
+                {isMobile ? "+ Ingreso" : "Añadir Ingreso"}
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -695,9 +713,9 @@ if (selectedPortfolio) {
 
           <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                Añadir Gasto
+              <Button variant="outline" className="gap-1">
+                {isMobile ? "": <ShoppingCart className="h-4 w-4" />}
+                {isMobile ? "+ Gasto" : "Añadir Gasto"}
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -832,6 +850,12 @@ if (selectedPortfolio) {
           </CardContent>
         </Card>
       </div>
+
+  
+
+      {/* 👇 AÑADIMOS ESTO */}
+      
+       
 
       <Card>
         <CardHeader>
@@ -1083,7 +1107,7 @@ if (selectedPortfolio) {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-1">
               <Plus className="h-4 w-4" />
               Añadir Cartera
             </Button>

@@ -375,7 +375,7 @@ async function generarPieChart(categories: string[], percentages: number[]): Pro
           onComplete: () => {
             // Cuando termine la animación, extraer base64
             const base64 = canvas.toDataURL("image/png");
-            chart.destroy();
+            //chart.destroy();
             canvas.remove();
             resolve(base64);
           },
@@ -437,7 +437,7 @@ async function generarPieChart(categories: string[], percentages: number[]): Pro
       });
        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
           const i = new Image();
-          i.src = "/logo.png";
+          i.src = "/logo_reporte.png";
           i.onload = () => {
             doc.addImage(i, "PNG", 32, 70, 150, 150);
             resolve(i);
