@@ -15,7 +15,7 @@ let mockUserResponse: any = null;
 let mockClientError: any = null;
 let mockClientThrows = false;
 
-export let createFromMock: jest.Mock = jest.fn((_table: string) => ({
+export const createFromMock: jest.Mock = jest.fn((_table: string) => ({
   select: jest.fn(() => ({
     eq: jest.fn(() => ({
       maybeSingle: async () => {

@@ -16,8 +16,7 @@ let mockInsertError: any = null;
 let mockInsertThrows = false;
 
 // exponer un mock `from` espiable para que las pruebas puedan comprobar si se intentó un insert en la BD
-export let createFromMock: jest.Mock;
-createFromMock = jest.fn((_table: string) => ({
+export const createFromMock: jest.Mock = jest.fn((_table: string) => ({
   insert: jest.fn((_arr: any[]) => ({
     select: jest.fn((_sel: string) => ({
       single: async () => {
