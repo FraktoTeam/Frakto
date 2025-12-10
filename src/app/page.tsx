@@ -47,6 +47,7 @@ import {
   PopoverTrigger,
 } from "./components/ui/popover";
 import type { Achievement } from "./components/AchievementsCarousel";
+import { createClient } from "@/utils/client";
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
@@ -88,6 +89,56 @@ export default function App() {
     }
   }, []);
 
+  // 🔄 Cargar número de metas activas al iniciar sesión
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchActiveGoals = async () => {
+      const { data, error } = await createClient
+        .from("meta_ahorro")
+        .select("status")
+        .eq("id_usuario", userId);
+
+      if (!error && data) {
+        const activeCount = data.filter((g: any) => g.status === "active").length;
+        setActiveGoals(activeCount);
+      }
+    };
+
+    fetchActiveGoals();
+  }, [userId]);
+
+  // 🟢 Detectar cambios en carteras en tiempo real y actualizar metas activas
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = createClient
+      .channel("cartera_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cartera",
+          filter: `id_usuario=eq.${userId}`,
+        },
+        async () => {
+          const { data } = await createClient
+            .from("meta_ahorro")
+            .select("status")
+            .eq("id_usuario", userId);
+
+          const activeCount = data?.filter((g: any) => g.status === "active").length ?? 0;
+          setActiveGoals(activeCount);
+        }
+      )
+      .subscribe();
+
+    // Cleanup al desmontar
+    return () => {
+      createClient.removeChannel(channel);
+    };
+  }, [userId]);
 
   // Si NO está logueado → mostrar LOGIN o REGISTER sin sidebar
   if (!isLogged) {

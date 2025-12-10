@@ -90,9 +90,10 @@ export function AchievementsCarousel({
   onNewUnlock,
 }: AchievementsCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [previousUnlocked, setPreviousUnlocked] = useState<Set<string>>(
-    new Set()
-  );
+  const [previousUnlocked, setPreviousUnlocked] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem("announcedAchievements");
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
 
   // Calcular qué logros están desbloqueados
   const achievements: Achievement[] = PREDEFINED_ACHIEVEMENTS.map(
@@ -112,28 +113,29 @@ export function AchievementsCarousel({
     }
   );
 
-  // Detectar nuevos desbloqueos
   useEffect(() => {
-    const newUnlocked = new Set(
-      achievements.filter((a) => a.unlocked).map((a) => a.id)
+    const newlyUnlocked = new Set(
+      achievements.filter(a => a.unlocked).map(a => a.id)
     );
 
-    achievements.forEach((achievement) => {
-      if (
-        achievement.unlocked &&
-        !previousUnlocked.has(achievement.id)
-      ) {
-        // Nuevo logro desbloqueado (solo notificar después de la primera carga)
-        if (onNewUnlock) {
-          onNewUnlock(achievement);
+    achievements.forEach(a => {
+      if (a.unlocked && !previousUnlocked.has(a.id)) {
+        if (previousUnlocked.size > 0 && onNewUnlock) {
+          onNewUnlock(a);
         }
+        previousUnlocked.add(a.id);
       }
     });
 
-    // Actualizar el set de previamente desbloqueados
-    setPreviousUnlocked(newUnlocked);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Guardar en localStorage para persistencia
+    localStorage.setItem(
+      "announcedAchievements",
+      JSON.stringify(Array.from(previousUnlocked))
+    );
+
+    setPreviousUnlocked(new Set(previousUnlocked));
   }, [completedGoalsCount, totalSavingsInGoals]);
+
 
   const itemsPerPage = 3;
   const totalPages = Math.ceil(achievements.length / itemsPerPage);
