@@ -59,6 +59,7 @@ interface GoalsProps {
   selectedAchievementId: string | null;
   onSelectAchievement: (id: string) => void;
   onActiveGoalsChange?: (count: number) => void;
+  onNewUnlock?: (achievement: Achievement) => void;
 }
 
 export function Goals({
@@ -66,6 +67,7 @@ export function Goals({
   selectedAchievementId,
   onSelectAchievement,
   onActiveGoalsChange,
+  onNewUnlock, 
 }: GoalsProps) {
 
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -146,7 +148,7 @@ export function Goals({
 
         const { data, error } = await createClient
           .from("meta_ahorro")
-          .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre, cantidad_acumulada, saldo_inicial")
+          .select("id_meta, nombre, cantidad_objetivo, fecha_limite, cartera_nombre, cantidad_acumulada, saldo_inicial, status")
           .eq("id_usuario", userId)
           .order("fecha_limite", { ascending: true });
 
@@ -165,7 +167,7 @@ export function Goals({
           deadline: m.fecha_limite,
           portfolioId: m.cartera_nombre,
           portfolioName: m.cartera_nombre ?? "Todas las carteras",
-          status: "active",
+          status: m.status ?? "active",
           saldoInicial: Number(m.saldo_inicial), 
         }));
 
@@ -194,6 +196,7 @@ export function Goals({
 
   // Estado de la meta según dinero real + fecha
 const calculateStatus = (goal: Goal): "active" | "completed" | "expired" => {
+  if (goal.status === "completed") return "completed";
   const today = new Date();
   const deadline = new Date(goal.deadline);
   const currentAmount = goal.currentAmount;
@@ -215,17 +218,43 @@ const calculateStatus = (goal: Goal): "active" | "completed" | "expired" => {
 
 const updatedGoals: Goal[] = goals.map((goal) => {
   const saldoActual = getCurrentAmount(goal.portfolioId);
-  const progreso = saldoActual - goal.saldoInicial; 
+  const progreso = saldoActual - goal.saldoInicial;
+
+  if (goal.status === "completed") {
+    return {
+      ...goal,
+      currentAmount: goal.targetAmount,
+      status: "completed",
+    };
+  }
+
+  const newStatus = calculateStatus({
+    ...goal,
+    currentAmount: progreso,
+  });
 
   return {
     ...goal,
-    currentAmount: progreso, 
-    status: calculateStatus({
-      ...goal,
-      currentAmount: progreso,
-    }),
+    currentAmount: progreso,
+    status: newStatus,
   };
 });
+
+useEffect(() => {
+  const metasCompletadas = updatedGoals.filter(
+    (g) => g.status === "completed" && g.status !== goals.find(go => go.id === g.id)?.status
+  );
+
+  metasCompletadas.forEach(async (meta) => {
+    console.log("Guardando meta completada en Supabase:", meta.id);
+
+    await createClient
+      .from("meta_ahorro")
+      .update({ status: "completed" })
+      .eq("id_meta", meta.id);
+  });
+}, [updatedGoals]);
+
 
   // Metas activas
   const activeGoalsCount = updatedGoals.filter(
@@ -247,12 +276,6 @@ const updatedGoals: Goal[] = goals.map((goal) => {
   useEffect(() => {
     if (onActiveGoalsChange) onActiveGoalsChange(activeGoalsCount);
   }, [activeGoalsCount, onActiveGoalsChange]);
-
-  // Handler cuando AchievementsCarousel detecta un nuevo logro desbloqueado
-  const handleNewUnlock = (achievement: Achievement) => {
-    setNewUnlockedAchievement(achievement);
-    setShowAchievementNotification(true);
-  };
 
   // Validación
   const validateForm = () => {
@@ -468,7 +491,7 @@ const handleDeleteClick = (goal: Goal) => {
         totalSavingsInGoals={totalSavingsInGoals}
         selectedAchievementId={selectedAchievementId}
         onSelectAchievement={onSelectAchievement}
-        onNewUnlock={handleNewUnlock}
+        onNewUnlock={onNewUnlock}
       />
 
       {/* Header */}

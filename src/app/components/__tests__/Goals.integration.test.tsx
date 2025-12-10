@@ -108,6 +108,19 @@ jest.mock('@/utils/client', () => ({
             },
           };
         },
+        update: (updates: any) => ({
+          eq: (k: string, v: any) => ({
+            eq: (_k2: string, _v2: any) => {
+              // Actualizar el goal en mockGoals si coincide
+              if (table === 'meta_ahorro' && k === 'id_meta') {
+                mockGoals = mockGoals.map((g: any) =>
+                  (g.id_meta ?? g.id) === v ? { ...g, ...updates } : g
+                );
+              }
+              return Promise.resolve({ data: updates, error: null });
+            },
+          }),
+        }),
       };
     },
   },
