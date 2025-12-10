@@ -38,15 +38,15 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "./components/ui/alert-dialog";
-import { Award, Trophy, Star, Medal, Crown, Sparkles } from "lucide-react";
+import { Award, Trophy, Star, Medal, Crown, Sparkles, XCircle } from "lucide-react";
 import { PREDEFINED_ACHIEVEMENTS } from "./components/AchievementsCarousel";
 import { LandingPage } from "./components/LandingPage";
-
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "./components/ui/popover";
+import type { Achievement } from "./components/AchievementsCarousel";
 
 export default function App() {
   const [activeView, setActiveView] = useState("home");
@@ -65,6 +65,8 @@ export default function App() {
   const [isLogged, setIsLogged] = useState(false);
   const [loggedUser, setLoggedUser] = useState<{ nombre_usuario: string; correo: string } | null>(null);
   const [selectedAchievementId, setSelectedAchievementId] = useState<string | null>(null);
+  const [newUnlockedAchievement, setNewUnlockedAchievement] =   useState<Achievement | null>(null);
+  const [showAchievementNotification, setShowAchievementNotification] = useState(false);
 
 
   useEffect(() => {
@@ -199,6 +201,10 @@ export default function App() {
     }
   };
 
+  const handleNewUnlock = (achievement: Achievement) => {
+    setNewUnlockedAchievement(achievement);
+    setShowAchievementNotification(true);
+  };
 
   const menuItems = [
     { id: "home", label: "Home", icon: HomeIcon },
@@ -251,7 +257,8 @@ export default function App() {
       userId={userId}
       selectedAchievementId={selectedAchievementId}      // 👈 nuevo
       onSelectAchievement={handleSelectAchievement}     // 👈 nuevo
-      onActiveGoalsChange={setActiveGoals}               // ya lo tenías
+      onActiveGoalsChange={setActiveGoals}   
+      onNewUnlock={handleNewUnlock}             // ya lo tenías
     />
   );
 
@@ -284,7 +291,29 @@ export default function App() {
   // Si está logueado → mostrar app completa
   return (
     <div className="relative w-full h-full">
+      {/* 🔔 Notificación global de logro desbloqueado */}
+      {showAchievementNotification && newUnlockedAchievement && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right">
+          <div className="border-green-600 bg-gradient-to-br from-green-50 to-emerald-50 shadow-xl max-w-sm rounded-xl p-4 flex gap-3">
+            <div className="bg-green-600 text-white rounded-full p-2 flex items-center justify-center">
+              <Sparkles className="h-5 w-5" />
+            </div>
 
+            <div className="flex-1">
+              <h4 className="text-green-900 font-semibold">¡Logro Desbloqueado!</h4>
+              <p className="text-sm text-green-800">{newUnlockedAchievement.name}</p>
+              <p className="text-xs text-green-700">{newUnlockedAchievement.description}</p>
+            </div>
+
+            <button
+              onClick={() => setShowAchievementNotification(false)}
+              className="text-green-600 hover:text-green-800"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
     {/* 🔥 Montar las alertas globales aquí */}
     <AlertBanner userId={userId} />
     <div className="flex h-screen bg-gray-50">

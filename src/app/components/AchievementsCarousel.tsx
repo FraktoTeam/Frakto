@@ -121,8 +121,7 @@ export function AchievementsCarousel({
     achievements.forEach((achievement) => {
       if (
         achievement.unlocked &&
-        !previousUnlocked.has(achievement.id) &&
-        previousUnlocked.size > 0
+        !previousUnlocked.has(achievement.id)
       ) {
         // Nuevo logro desbloqueado (solo notificar después de la primera carga)
         if (onNewUnlock) {
